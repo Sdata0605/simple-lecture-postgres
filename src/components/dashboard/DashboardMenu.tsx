@@ -1,0 +1,145 @@
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { LayoutDashboard, BookOpen, Video, Trophy, MessageSquare, HelpCircle, User, LogOut, Menu, Newspaper, CalendarClock, Grid3X3, FileText, NotebookPen, GraduationCap, LogIn } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { queryClient } from "@/lib/queryClient";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { openAskAI } from "@/lib/askAIStore";
+import { useMemo, type ComponentType } from "react";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { isGuestVisibleMenuItem, isMenuRouteActive } from "./dashboardNavRules";
+
+type MenuItem =
+  | { label: string; icon: ComponentType<{ className?: string }>; to: string }
+  | { label: string; icon: ComponentType<{ className?: string }>; askAI: true };
+
+const items: MenuItem[] = [
+  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
+  { label: "Browse Courses", icon: Grid3X3, to: "/programs" },
+  { label: "My Courses", icon: BookOpen, to: "/my-courses" },
+  { label: "Time Table", icon: CalendarClock, to: "/timetable" },
+  { label: "My Tests", icon: FileText, to: "/my-tests" },
+  { label: "My Notes", icon: NotebookPen, to: "/my-notes" },
+  { label: "Forum", icon: MessageSquare, to: "/forum" },
+  { label: "Blog", icon: Newspaper, to: "/blog" },
+  { label: "Support", icon: HelpCircle, to: "/support" },
+  { label: "Profile", icon: User, to: "/profile" },
+];
+
+export const DashboardMenu = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { data: profile } = useUserProfile();
+  const { user, isLoading: authLoading } = useAuth();
+  // While the session loads, neither the guest nor the signed-in controls are shown as final.
+  const isGuest = !authLoading && !user;
+  const menuItems = useMemo(() => {
+    const list: MenuItem[] = [...items];
+    const myCoursesIdx = list.findIndex((i) => "to" in i && i.to === "/my-courses");
+    // Opens the Ask AI screen (the one the lecture player has) instead of going to a page of its own.
+    const aiItem: MenuItem = { label: "AI Teacher", icon: GraduationCap, askAI: true };
+    if (myCoursesIdx !== -1) {
+      list.splice(myCoursesIdx + 1, 0, aiItem);
+    } else {
+      list.unshift(aiItem);
+    }
+    return list;
+  }, []);
+
+  const visibleItems = useMemo(
+    () =>
+      isGuest
+        ? menuItems.filter((item) => isGuestVisibleMenuItem("to" in item ? item.to : null))
+        : menuItems,
+    [isGuest, menuItems],
+  );
+
+  const initials = (profile?.full_name || profile?.email || "U").slice(0, 2).toUpperCase();
+
+  const handleLogout = async () => {
+    queryClient.clear();
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Open menu">
+          <Menu className="h-5 w-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent side="right" className="w-[300px] sm:w-[360px] flex flex-col p-0">
+        <SheetHeader className="px-6 pt-6">
+          <SheetTitle className="text-left">Menu</SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto px-6 pb-4">
+          {!isGuest && (
+            <>
+              <div className="flex items-center gap-3 mt-4">
+                <Avatar className="h-12 w-12">
+                  {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />}
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="font-medium leading-tight">{profile?.full_name || "Student"}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.email || ""}</p>
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+            </>
+          )}
+
+          <nav className="space-y-1">
+            {visibleItems.map((item) => {
+              const { label, icon: Icon } = item;
+              if ("askAI" in item) {
+                return (
+                  <SheetClose asChild key={label}>
+                    <Button variant="ghost" className="w-full justify-start gap-3" onClick={() => openAskAI()}>
+                      <Icon className="h-5 w-5" />
+                      {label}
+                    </Button>
+                  </SheetClose>
+                );
+              }
+              const { to } = item;
+              const active = isMenuRouteActive(location.pathname, to);
+              return (
+                <Link key={to} to={to} className="block">
+                  <Button
+                    variant={active ? "secondary" : "ghost"}
+                    className="w-full justify-start gap-3"
+                  >
+                    <Icon className="h-5 w-5" />
+                    {label}
+                  </Button>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="border-t px-6 py-4">
+          {isGuest ? (
+            <Link to="/auth?tab=login" className="block">
+              <Button className="w-full justify-start gap-3">
+                <LogIn className="h-5 w-5" /> Sign in
+              </Button>
+            </Link>
+          ) : (
+            <Button variant="outline" className="w-full justify-start gap-3 text-destructive border-destructive" onClick={handleLogout}>
+              <LogOut className="h-5 w-5" /> Logout
+            </Button>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};

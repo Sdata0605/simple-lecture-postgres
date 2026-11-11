@@ -1,0 +1,780 @@
+/* AskAIAssistant — full-screen voice assistant over the paused lecture.
+   Same palette family as v5-player.css / hyperframe-player.css. */
+
+.aa-overlay {
+  --aa-ink: #eef6f4;
+  --aa-muted: #91a7a3;
+  --aa-line: rgba(162, 201, 192, 0.18);
+  --aa-mint: #7ce0c3;
+  --aa-gold: #f5c66a;
+  --aa-rose: #fb7185;
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  /* Above V5Player (9999), same layer as the answer player it hands off to. */
+  z-index: 10000;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  color: var(--aa-ink);
+  /* Lets the paused lecture show through faintly — the assistant feels
+     layered over the lesson rather than replacing it. */
+  background:
+    radial-gradient(ellipse at 18% 8%, rgba(45, 212, 191, 0.16), transparent 46%),
+    radial-gradient(ellipse at 85% 95%, rgba(167, 139, 250, 0.16), transparent 50%),
+    rgba(4, 10, 9, 0.88);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  animation: aa-enter 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.aa-topbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 18px 10px;
+}
+
+/* The small robot at the top centre: brings the teacher panel back while a presentation is on screen. */
+.aa-topbar__robot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+  transition: filter 160ms ease;
+}
+
+.aa-topbar__robot:hover {
+  filter: drop-shadow(0 0 8px rgba(124, 224, 195, 0.5));
+}
+
+.aa-topbar__robot:focus-visible {
+  outline: 2px solid var(--aa-mint);
+  outline-offset: 4px;
+}
+
+.aa-accent {
+  color: var(--aa-mint);
+}
+
+.aa-topbar__title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 12px/1 "Cascadia Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--aa-mint);
+}
+
+.aa-topbar__title svg {
+  flex-shrink: 0;
+  color: var(--aa-gold);
+}
+
+.aa-topbar__subject {
+  overflow: hidden;
+  color: var(--aa-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.06em;
+}
+
+.aa-icon-btn {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--aa-line);
+  border-radius: 50%;
+  color: var(--aa-ink);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.aa-icon-btn:hover {
+  border-color: rgba(124, 224, 195, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.aa-icon-btn:focus-visible,
+.aa-send:focus-visible,
+.aa-input:focus-visible {
+  outline: 2px solid var(--aa-mint);
+  outline-offset: 2px;
+}
+
+.aa-center {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vh, 28px);
+  padding: 8px 20px;
+  overflow: hidden;
+}
+
+.aa-orb-wrap {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.aa-text {
+  width: min(640px, 100%);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.aa-status {
+  margin: 0;
+  color: var(--aa-mint);
+  font: 700 11px/1.4 "Cascadia Mono", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: aa-fade 240ms ease both;
+}
+
+.aa-status.is-hearing {
+  color: #9dd7ff;
+}
+
+.aa-status.is-problem {
+  max-width: 460px;
+  color: var(--aa-muted);
+  font: 500 14px/1.5 "Aptos", "Segoe UI", sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Live transcript of what the student is saying — the loudest text on screen. */
+.aa-transcript {
+  margin: 0;
+  max-height: 30vh;
+  overflow: hidden;
+  font-size: clamp(19px, 2.6vw, 28px);
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--aa-ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+/* What the assistant is currently saying out loud. */
+.aa-caption {
+  margin: 0;
+  font-family: "Georgia", serif;
+  font-size: clamp(17px, 2.2vw, 23px);
+  line-height: 1.4;
+  color: rgba(238, 246, 244, 0.86);
+  animation: aa-fade 260ms ease both;
+}
+
+.aa-question {
+  margin: 0;
+  max-width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--aa-line);
+  border-radius: 16px 16px 4px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 15px;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  animation: aa-fade 240ms ease both;
+}
+
+.aa-question span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--aa-muted);
+  font: 700 9px/1.2 "Cascadia Mono", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.aa-notice {
+  margin: 0;
+  max-width: 460px;
+  padding: 10px 14px;
+  border: 1px solid rgba(251, 113, 133, 0.3);
+  border-radius: 12px;
+  color: #ffd9df;
+  background: rgba(251, 113, 133, 0.08);
+  font-size: 14px;
+  line-height: 1.45;
+  animation: aa-fade 240ms ease both;
+}
+
+.aa-composer {
+  width: min(680px, calc(100% - 24px));
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: max(14px, env(safe-area-inset-bottom));
+  padding: 6px 6px 6px 8px;
+  border: 1px solid var(--aa-line);
+  border-radius: 999px;
+  background: rgba(7, 16, 15, 0.82);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.aa-composer:focus-within {
+  border-color: rgba(124, 224, 195, 0.45);
+}
+
+.aa-mic-chip {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--aa-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.aa-mic-chip.is-live {
+  color: #062019;
+  background: var(--aa-mint);
+  box-shadow: 0 0 0 0 rgba(124, 224, 195, 0.5);
+  animation: aa-mic-pulse 1.6s ease-out infinite;
+}
+
+.aa-input {
+  min-width: 0;
+  flex: 1;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  color: var(--aa-ink);
+  background: transparent;
+  /* 16px stops iOS Safari from zooming the page when the input is focused. */
+  font: 400 16px/1.2 "Aptos", "Segoe UI", sans-serif;
+}
+
+.aa-input::placeholder {
+  color: rgba(145, 167, 163, 0.8);
+}
+
+.aa-input:disabled {
+  opacity: 0.5;
+}
+
+.aa-send {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #062019;
+  background: var(--aa-mint);
+  cursor: pointer;
+  transition: transform 140ms ease, opacity 140ms ease;
+}
+
+.aa-send:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.aa-send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+@keyframes aa-enter {
+  from { opacity: 0; transform: scale(1.02); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes aa-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aa-mic-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(124, 224, 195, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(124, 224, 195, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(124, 224, 195, 0); }
+}
+
+/* Landscape phone: orb beside the text instead of stacked, so neither gets
+   squeezed into a few pixels of height. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .aa-topbar {
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: 4px;
+  }
+
+  .aa-center {
+    flex-direction: row;
+    gap: 28px;
+  }
+
+  .aa-text {
+    width: min(460px, 55vw);
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .aa-composer {
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 480px) {
+  .aa-topbar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .aa-center {
+    padding: 4px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aa-overlay,
+  .aa-status,
+  .aa-caption,
+  .aa-question,
+  .aa-notice {
+    animation: none;
+  }
+
+  .aa-mic-chip.is-live {
+    animation: none;
+  }
+}
+
+/* ---- live AI Teacher ---- */
+
+/* Real speech runs longer than the old canned lines: let the caption scroll instead of pushing the orb off screen. */
+.aa-caption {
+  max-height: 24vh;
+  overflow-y: auto;
+}
+
+/* Login / plan message shown instead of the orb. */
+.aa-gate {
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.aa-gate h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.aa-gate p {
+  margin: 0;
+  color: var(--aa-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.aa-action {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  color: #062019;
+  background: var(--aa-mint);
+  font: 600 14px/1 "Aptos", "Segoe UI", sans-serif;
+  cursor: pointer;
+}
+
+.aa-action:focus-visible {
+  outline: 2px solid var(--aa-ink);
+  outline-offset: 2px;
+}
+
+/* Subject chooser shown when Ask AI is opened without a subject. */
+.aa-picker {
+  max-width: min(920px, 100%);
+  width: 100%;
+}
+
+/* A horizontal row of subject cards that scrolls sideways when there are many. */
+.aa-picker__list {
+  width: 100%;
+  display: flex;
+  gap: 14px;
+  justify-content: safe center;
+  overflow-x: auto;
+  padding: 6px 4px 14px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.aa-subject-card {
+  position: relative;
+  flex: 0 0 220px;
+  width: 220px;
+  height: 160px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 18px;
+  overflow: hidden;
+  color: #eef6f4;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.aa-subject-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.aa-subject-card:focus-visible {
+  outline: 2px solid var(--aa-mint);
+  outline-offset: 3px;
+}
+
+.aa-subject-card__icon {
+  position: absolute;
+  right: 10px;
+  bottom: 46px;
+  opacity: 0.4;
+  color: #ffffff;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.aa-subject-card__icon svg {
+  width: 84px;
+  height: 84px;
+}
+
+.aa-subject-card__name {
+  max-width: 100%;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.aa-subject-card__course {
+  max-width: 100%;
+  color: rgba(238, 246, 244, 0.8);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.aa-subject-card__topics {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #eef6f4;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.aa-subject-card__go {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+/* Short screens (landscape phones, small laptops): smaller cards and robot so the picker still fits. */
+@media (max-height: 520px) {
+  .aa-subject-card {
+    flex-basis: 180px;
+    width: 180px;
+    height: 132px;
+  }
+
+  .aa-subject-card__icon svg {
+    width: 64px;
+    height: 64px;
+  }
+
+  .aa-picker .aa-robot {
+    width: 104px !important;
+    height: 104px !important;
+  }
+}
+
+.aa-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 1px solid var(--aa-line);
+  border-radius: 14px;
+  color: var(--aa-ink);
+  background: rgba(255, 255, 255, 0.05);
+  font: 600 15px/1.3 "Aptos", "Segoe UI", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.aa-picker__item small {
+  flex-shrink: 0;
+  color: var(--aa-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.aa-picker__item:hover {
+  border-color: rgba(124, 224, 195, 0.5);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.aa-picker__item:focus-visible {
+  outline: 2px solid var(--aa-mint);
+  outline-offset: 2px;
+}
+
+.aa-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Subject name with the course(s) it belongs to in small letters underneath. */
+.aa-picker__name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.aa-picker__item small.aa-picker__course {
+  flex-shrink: 1;
+  color: var(--aa-muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+/* Teacher settings shown inside the overlay: a scrollable, app-themed panel instead of the centred orb layout. */
+.aa-settings {
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: 16px 16px 40px;
+}
+
+.aa-settings__inner {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 16px;
+  border-radius: 16px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* ---- robot (RobotFace). Sizes are in em: the root's font-size is its own size, so children scale with it. ---- */
+
+.aa-robot {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  line-height: 0;
+}
+
+.aa-robot__antenna {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 0.05em;
+  height: 0.16em;
+  transform: translateX(-50%);
+  border-radius: 0.03em;
+  background: linear-gradient(#d6e0e1, #9fb3b6);
+}
+
+.aa-robot__antenna::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.05em;
+  width: 0.1em;
+  height: 0.1em;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: #7ce0c3;
+  box-shadow: 0 0 0.08em #7ce0c3;
+}
+
+.aa-robot__head {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 14%;
+  bottom: 2%;
+  border-radius: 0.36em;
+  background: linear-gradient(135deg, #fff, #f2f6f6 38%, #d6e0e1 80%, #aebfc2);
+  box-shadow: inset 0 -0.04em 0 rgba(0, 0, 0, 0.08), 0 0.06em 0.12em rgba(0, 0, 0, 0.35);
+}
+
+.aa-robot__screen {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 18%;
+  bottom: 18%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.07em;
+  border-radius: 0.24em;
+  background: #03070a;
+}
+
+.aa-robot__eyes {
+  display: flex;
+  gap: 0.16em;
+}
+
+.aa-robot__eye {
+  width: 0.13em;
+  height: 0.18em;
+  border-radius: 50%;
+  background: #7ce0c3;
+  box-shadow: 0 0 0.1em rgba(124, 224, 195, 0.7);
+}
+
+.aa-robot__smile {
+  width: 0.2em;
+  height: 0.09em;
+  border-style: solid;
+  border-color: #7ce0c3;
+  border-width: 0 0.025em 0.025em;
+  border-radius: 0 0 0.2em 0.2em;
+  box-shadow: 0 0 0.06em rgba(124, 224, 195, 0.6);
+}
+
+/* Top-bar badge: no antenna, smaller eyes. */
+.aa-robot.is-badge .aa-robot__head {
+  top: 12%;
+  bottom: 4%;
+}
+
+.aa-robot.is-badge .aa-robot__eyes {
+  gap: 0.12em;
+}
+
+.aa-robot.is-badge .aa-robot__eye {
+  width: 0.09em;
+  height: 0.12em;
+}
+
+.aa-robot.is-badge .aa-robot__smile {
+  width: 0.16em;
+}
+
+/* Modes. */
+.aa-robot.is-listening .aa-robot__eye {
+  height: 0.24em;
+  box-shadow: 0 0 0.16em #7ce0c3;
+}
+
+.aa-robot.is-thinking .aa-robot__eye {
+  opacity: 0.6;
+}
+
+.aa-robot.is-error .aa-robot__eye {
+  background: #fb7185;
+  box-shadow: 0 0 0.1em rgba(251, 113, 133, 0.7);
+}
+
+.aa-robot.is-error .aa-robot__smile {
+  border-color: #fb7185;
+  border-width: 0.025em 0.025em 0;
+  border-radius: 0.2em 0.2em 0 0;
+  box-shadow: 0 0 0.06em rgba(251, 113, 133, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .aa-robot {
+    animation: aa-float 2.4s ease-in-out infinite;
+  }
+
+  .aa-robot__eye {
+    animation: aa-blink 4s infinite;
+  }
+
+  .aa-robot.is-speaking .aa-robot__smile {
+    animation: aa-talk 320ms ease-in-out infinite alternate;
+  }
+
+  .aa-robot.is-thinking .aa-robot__eyes {
+    animation: aa-think 1.6s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aa-robot,
+  .aa-robot__eye,
+  .aa-robot__eyes,
+  .aa-robot__smile {
+    animation: none;
+  }
+}
+
+@keyframes aa-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes aa-blink {
+  0%, 96%, 98%, 100% { transform: scaleY(1); }
+  97% { transform: scaleY(0.1); }
+}
+
+@keyframes aa-talk {
+  from { height: 0.05em; }
+  to { height: 0.16em; }
+}
+
+@keyframes aa-think {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(0.05em); }
+}

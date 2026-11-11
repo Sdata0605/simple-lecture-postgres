@@ -1,0 +1,699 @@
+.v5-player {
+  --v5-ink: #eef6f4;
+  --v5-muted: #91a7a3;
+  --v5-line: rgba(162, 201, 192, 0.2);
+  --v5-mint: #7ce0c3;
+  --v5-gold: #f5c66a;
+  /* Anchored as a full-viewport overlay, matching .v4-player. Without this the
+     player is a normal in-flow block: portalled to the end of document.body it
+     renders *below* the page instead of on top of it. (It looked fine on the
+     standalone /v5-player route only because it was the sole content there.)
+     `inset: 0` rather than 100vw/100dvh also avoids the horizontal overflow
+     100vw causes when a scrollbar is present. */
+  position: fixed;
+  inset: 0;
+  /* inset: 0 alone can leave a strip at the bottom uncovered on mobile
+     Chrome — it measures against the "layout viewport" (which includes the
+     area the address/toolbar can occupy), not the actually-visible one.
+     `dvh` tracks the real visible height live as the toolbar shows/hides. */
+  height: 100vh;
+  height: 100dvh;
+  z-index: 9999;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  color: var(--v5-ink);
+  background:
+    radial-gradient(circle at 10% 10%, rgba(44, 116, 98, 0.22), transparent 32%),
+    #07100f;
+  font-family: "Aptos", "Segoe UI", sans-serif;
+}
+
+.v5-header {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--v5-line);
+  background: rgba(7, 16, 15, 0.94);
+  backdrop-filter: blur(18px);
+  z-index: 5;
+}
+
+.v5-header button,
+.v5-controls button {
+  color: inherit;
+}
+
+.v5-header__back {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--v5-line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.v5-header__identity {
+  min-width: 0;
+}
+
+.v5-header__version {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--v5-mint);
+  font: 700 10px/1.2 "Cascadia Mono", monospace;
+  letter-spacing: 0.14em;
+}
+
+.v5-header h1 {
+  margin: 0;
+  overflow: hidden;
+  font-family: "Georgia", serif;
+  font-size: clamp(17px, 2vw, 24px);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v5-header__status {
+  max-width: 310px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--v5-muted);
+  font-size: 12px;
+}
+
+.v5-header__status > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v5-header__renderer {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(245, 198, 106, 0.24);
+  border-radius: 999px;
+  color: var(--v5-gold);
+  font: 700 9px/1 "Cascadia Mono", monospace;
+  text-transform: uppercase;
+}
+
+.v5-language {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--v5-line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.v5-language select,
+.v5-controls select {
+  border: 0;
+  outline: 0;
+  color: var(--v5-ink);
+  background: transparent;
+  font: 600 12px/1 sans-serif;
+}
+
+.v5-language option,
+.v5-controls option {
+  color: #10201d;
+}
+
+.v5-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.v5-stage:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: #000;
+}
+
+.v5-stage:fullscreen .v5-video {
+  object-fit: cover;
+}
+
+.v5-stage:fullscreen .v5-section-progress {
+  opacity: 0;
+}
+
+/* Floats the *same* <V5Controls> bar used outside fullscreen over the video
+   — that bar lives outside .v5-stage normally, and the Fullscreen API only
+   ever displays the fullscreen element's own subtree, so without a copy of
+   it rendered *inside* .v5-stage, fullscreen would have no play/pause, mute,
+   replay or speed controls at all (only whatever was hand-built here). */
+.v5-fullscreen-controls {
+  position: absolute;
+  z-index: 6;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.v5-fullscreen-controls.is-visible,
+.v5-fullscreen-controls:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.v5-fullscreen-controls .v5-controls {
+  background: rgba(3, 12, 10, 0.72);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(124, 224, 195, 0.2);
+}
+
+.v5-video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+.v5-stage__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(0, 0, 0, 0.2), transparent 38%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.32), transparent 24%);
+}
+
+.v5-keypoints {
+  position: absolute;
+  z-index: 3;
+  left: clamp(14px, 3vw, 46px);
+  top: 50%;
+  width: min(430px, 38vw);
+  max-height: 74%;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  touch-action: pan-y;
+  border-left: 3px solid #60a5fa;
+  border-radius: 0 12px 12px 0;
+  pointer-events: auto;
+  transform: translateY(-50%);
+  animation: v5-panel-in 360ms ease-out both;
+  backdrop-filter: blur(3px);
+}
+
+.v5-keypoints--manim {
+  background: rgba(4, 18, 15, 0.2);
+}
+
+.v5-keypoints--visual {
+  background: rgba(4, 18, 15, 0.2);
+}
+
+.v5-keypoints__eyebrow {
+  position: sticky;
+  z-index: 2;
+  top: -16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 0 10px;
+  margin-bottom: 13px;
+  color: #9dc9ff;
+  background: linear-gradient(180deg, rgba(4, 18, 15, 0.5) 72%, transparent);
+  font: 700 10px/1 "Cascadia Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.v5-keypoints__label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v5-keypoints__eyebrow button,
+.v5-keypoints-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(157, 201, 255, 0.25);
+  color: #dbeafe;
+  background: rgba(10, 20, 30, 0.84);
+  font: 700 9px/1 "Cascadia Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.v5-keypoints__eyebrow button {
+  padding: 7px 9px;
+  border-radius: 7px;
+}
+
+.v5-keypoints__eyebrow button:hover,
+.v5-keypoints-toggle:hover {
+  border-color: rgba(124, 224, 195, 0.58);
+  color: var(--v5-mint);
+  background: rgba(22, 46, 41, 0.94);
+}
+
+.v5-keypoints-toggle {
+  position: absolute;
+  z-index: 3;
+  left: clamp(14px, 3vw, 46px);
+  top: 18px;
+  padding: 11px 13px;
+  border-left: 3px solid #60a5fa;
+  border-radius: 0 9px 9px 0;
+  backdrop-filter: blur(6px);
+}
+
+.v5-keypoints__pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #60a5fa;
+  box-shadow: 0 0 0 5px rgba(96, 165, 250, 0.13);
+}
+
+.v5-keypoints__list {
+  display: grid;
+  gap: 8px;
+}
+
+.v5-keypoint {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  padding: 9px 10px;
+  border: 1px solid rgba(124, 224, 195, 0.16);
+  border-radius: 8px;
+  color: rgba(238, 246, 244, 0.9);
+  background: rgba(35, 125, 99, 0.16);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  font-size: clamp(12px, 1.15vw, 15px);
+  line-height: 1.45;
+  animation: v5-point-in 300ms ease-out both;
+}
+
+.v5-keypoint--active {
+  border-color: rgba(124, 224, 195, 0.38);
+  color: var(--v5-ink);
+  background: rgba(35, 125, 99, 0.16);
+}
+
+.v5-keypoint p {
+  margin: 0;
+}
+
+.v5-keypoint__number {
+  color: var(--v5-mint);
+  font: 700 10px/1.6 "Cascadia Mono", monospace;
+}
+
+.v5-section-progress {
+  position: absolute;
+  right: 18px;
+  bottom: 12px;
+  left: 18px;
+  display: flex;
+  gap: 3px;
+  height: 3px;
+  pointer-events: none;
+}
+
+.v5-section-progress span {
+  min-width: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.v5-section-progress span.is-active {
+  background: var(--v5-mint);
+  box-shadow: 0 0 10px rgba(124, 224, 195, 0.7);
+}
+
+.v5-controls {
+  padding: 11px 18px 13px;
+  border-top: 1px solid var(--v5-line);
+  background: rgba(7, 16, 15, 0.96);
+}
+
+.v5-controls__timeline {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 46px;
+  gap: 10px;
+  align-items: center;
+  color: var(--v5-muted);
+  font: 600 10px/1 "Cascadia Mono", monospace;
+}
+
+.v5-controls__timeline span:last-child {
+  text-align: right;
+}
+
+.v5-controls input[type="range"] {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  appearance: none;
+  border-radius: 999px;
+  outline: 0;
+  cursor: pointer;
+  background:
+    linear-gradient(90deg, var(--v5-mint) var(--v5-progress), rgba(255, 255, 255, 0.16) var(--v5-progress));
+}
+
+.v5-controls input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  appearance: none;
+  border: 3px solid #eafff8;
+  border-radius: 50%;
+  background: #2a8f75;
+  box-shadow: 0 0 0 4px rgba(124, 224, 195, 0.15);
+}
+
+.v5-controls__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.v5-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.v5-controls button {
+  width: 36px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+}
+
+.v5-controls button:hover,
+.v5-header__back:hover {
+  border-color: var(--v5-line);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.v5-controls__play {
+  color: #062019 !important;
+  background: var(--v5-mint) !important;
+}
+
+.v5-controls button.v5-controls__ask {
+  width: auto;
+  grid-auto-flow: column;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgba(124, 224, 195, 0.45);
+  border-radius: 999px;
+  color: #eafff8;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.28), rgba(96, 165, 250, 0.24) 55%, rgba(167, 139, 250, 0.28));
+  box-shadow: 0 0 18px rgba(124, 224, 195, 0.18);
+  font: 700 12px/1 "Aptos", "Segoe UI", sans-serif;
+}
+
+.v5-controls button.v5-controls__ask:hover {
+  border-color: var(--v5-mint);
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.42), rgba(96, 165, 250, 0.36) 55%, rgba(167, 139, 250, 0.42));
+}
+
+.v5-controls button.v5-controls__ask svg {
+  color: var(--v5-gold);
+}
+
+@media (max-width: 380px) {
+  .v5-controls button.v5-controls__ask {
+    padding: 0 10px;
+  }
+
+  .v5-controls button.v5-controls__ask span {
+    display: none;
+  }
+}
+
+.v5-controls select {
+  padding: 7px 8px;
+  border: 1px solid var(--v5-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.v5-tap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: 0;
+  color: white;
+  background: rgba(2, 8, 7, 0.68);
+  backdrop-filter: blur(8px);
+  font-weight: 700;
+}
+
+.v5-tap span {
+  width: 70px;
+  height: 70px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #062019;
+  background: var(--v5-mint);
+  box-shadow: 0 0 50px rgba(124, 224, 195, 0.35);
+}
+
+.v5-state {
+  width: 100vw;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  padding: 24px;
+  text-align: center;
+  color: #eaf8f4;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(40, 137, 111, 0.25), transparent 34%),
+    #07100f;
+}
+
+.v5-state span {
+  color: #91a7a3;
+}
+
+.v5-state__code {
+  color: #7ce0c3 !important;
+  font: 700 10px/1 "Cascadia Mono", monospace;
+  letter-spacing: 0.16em;
+}
+
+.v5-state__spinner {
+  color: #7ce0c3;
+  animation: v5-spin 900ms linear infinite;
+}
+
+.v5-state button {
+  margin-top: 10px;
+  padding: 10px 16px;
+  border: 1px solid rgba(124, 224, 195, 0.3);
+  border-radius: 9px;
+  color: #062019;
+  background: #7ce0c3;
+  font-weight: 700;
+}
+
+@keyframes v5-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes v5-panel-in {
+  from { opacity: 0; transform: translate(-12px, -50%); }
+  to { opacity: 1; transform: translate(0, -50%); }
+}
+
+@keyframes v5-point-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 760px) {
+  .v5-header {
+    min-height: 58px;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 9px;
+    padding: 8px 10px;
+  }
+
+  .v5-header__back {
+    width: 36px;
+    height: 36px;
+  }
+
+  .v5-header__status {
+    display: none;
+  }
+
+  .v5-header__version {
+    font-size: 8px;
+  }
+
+  .v5-language {
+    padding: 7px;
+  }
+
+  .v5-language svg {
+    display: none;
+  }
+
+  .v5-language select {
+    max-width: 72px;
+  }
+
+  /* Key points sit over the left of the video, vertically centred — the same
+     placement the mobile app uses, rather than a full-width bottom sheet. */
+  .v5-keypoints {
+    left: 12px;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: 54%;
+    max-height: 86%;
+    padding: 11px;
+    transform: translateY(-50%);
+  }
+
+  .v5-keypoint {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding: 7px;
+    font-size: 11px;
+  }
+
+  .v5-keypoints__eyebrow {
+    top: -11px;
+    margin-bottom: 8px;
+  }
+
+  .v5-keypoints-toggle {
+    left: 12px;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+
+  .v5-controls {
+    padding: 9px 10px 10px;
+  }
+
+}
+
+/* Portrait phone: hug the video to a 16:9 strip under the header, like the
+   mobile app, instead of stretching the stage down the whole viewport and
+   floating a small letterboxed frame in the middle of it. The extra grid row
+   absorbs the leftover height so header / stage / controls stack at the top. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .v5-player {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .v5-stage {
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
+  }
+
+  /* True fullscreen still forces the stage to 100vw/100vh via the base
+     .v5-stage:fullscreen rule above (correct — that IS fullscreen), but that
+     same rule also sets object-fit: cover, which crops/over-zooms a portrait
+     presenter clip into an unnaturally tall, cropped-in frame. Match the
+     landscape-fullscreen treatment below: the mobile app never crops the
+     lecture frame, so letterbox instead. */
+  .v5-stage:fullscreen .v5-video {
+    object-fit: contain;
+  }
+}
+
+/* Landscape phone — this is what a mobile fullscreen actually is. The
+   max-width breakpoint above never matches here (a phone in landscape is
+   ~840px wide), so the compact rules are keyed off height instead. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .v5-header {
+    min-height: 52px;
+    padding: 6px 10px;
+  }
+
+  .v5-header__status {
+    display: none;
+  }
+
+  /* Matches the mobile app's 38% landscape panel. */
+  .v5-keypoints {
+    left: clamp(10px, 2vw, 20px);
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: 38%;
+    max-height: 78%;
+    padding: 10px;
+    transform: translateY(-50%);
+  }
+
+  .v5-keypoint {
+    grid-template-columns: 22px minmax(0, 1fr);
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  .v5-keypoints-toggle {
+    left: clamp(10px, 2vw, 20px);
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+  }
+
+  .v5-controls {
+    padding: 7px 10px 8px;
+  }
+
+  /* The mobile app deliberately never crops the lecture frame, so mobile
+     fullscreen letterboxes rather than filling edge to edge. Desktop keeps
+     the `cover` treatment defined on .v5-stage:fullscreen above. */
+  .v5-stage:fullscreen .v5-video {
+    object-fit: contain;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v5-keypoints,
+  .v5-keypoint,
+  .v5-state__spinner {
+    animation: none;
+  }
+}
