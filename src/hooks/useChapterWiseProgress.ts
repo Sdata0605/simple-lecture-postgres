@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mcLog } from "@/lib/debug/myCoursesLogger";
+import { inBatches } from "@/lib/batchIn";
 
 export interface ChapterDetailedProgress {
   id: string;
@@ -40,8 +41,9 @@ export const useChapterWiseProgress = (courseIds: string[]) => {
       if (!user) return [];
 
       // 2. Fetch course subjects with chapters and topics
-      const { data: courseSubjects } = await supabase
-        .from('course_subjects')
+      const courseSubjects = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('course_subjects')
         .select(`
           course_id,
           popular_subjects (
@@ -66,7 +68,9 @@ export const useChapterWiseProgress = (courseIds: string[]) => {
             )
           )
         `)
-        .in('course_id', courseIds);
+          .in('course_id', chunk);
+        return data;
+      });
 
       if (!courseSubjects?.length) return [];
 
@@ -102,37 +106,66 @@ export const useChapterWiseProgress = (courseIds: string[]) => {
         paperResultsResult,
         watchLogsResult
       ] = await Promise.all([
-        // Published AI lecture jobs
-        supabase
-          .from('video_generation_jobs')
-          .select('id, chapter_id, topic_id')
-          .eq('is_published', true)
-          .or(`chapter_id.in.(${chapterIds.join(',')}),topic_id.in.(${topicIds.join(',')})`),
+        // Published AI lecture jobs: one chunked query per id list (was a single .or() string with both lists,
+        // which could exceed the proxy's URL limit), merged and de-duplicated by job id.
+        (async () => {
+          const byChapter = await inBatches(chapterIds, async (chunk) => {
+            const { data } = await (supabase as any)
+              .from('video_generation_jobs')
+              .select('id, chapter_id, topic_id')
+              .eq('is_published', true)
+              .in('chapter_id', chunk);
+            return data;
+          });
+          const byTopic = await inBatches(topicIds, async (chunk) => {
+            const { data } = await (supabase as any)
+              .from('video_generation_jobs')
+              .select('id, chapter_id, topic_id')
+              .eq('is_published', true)
+              .in('topic_id', chunk);
+            return data;
+          });
+          const merged = new Map<string, any>();
+          [...byChapter, ...byTopic].forEach((job: any) => merged.set(job.id, job));
+          return { data: Array.from(merged.values()) };
+        })(),
         
         // Additional topic videos
-        supabase
-          .from('topic_videos')
-          .select('id, topic_id')
-          .in('topic_id', topicIds),
+        inBatches(topicIds, async (chunk) => {
+          const { data } = await supabase
+            .from('topic_videos')
+            .select('id, topic_id')
+            .in('topic_id', chunk);
+          return data;
+        }).then((data) => ({ data })),
         
         // DPP questions (to count topics with DPPs)
-        supabase
-          .from('dpp_questions')
-          .select('id, topic_id, chapter_id')
-          .in('chapter_id', chapterIds),
+        inBatches(chapterIds, async (chunk) => {
+          const { data } = await supabase
+            .from('dpp_questions')
+            .select('id, topic_id, chapter_id')
+            .in('chapter_id', chunk);
+          return data;
+        }).then((data) => ({ data })),
         
         // DPP submissions
-        supabase
-          .from('dpp_topic_submissions')
-          .select('topic_id')
-          .eq('student_id', user.id)
-          .in('topic_id', topicIds),
+        inBatches(topicIds, async (chunk) => {
+          const { data } = await supabase
+            .from('dpp_topic_submissions')
+            .select('topic_id')
+            .eq('student_id', user.id)
+            .in('topic_id', chunk);
+          return data;
+        }).then((data) => ({ data })),
         
         // Practice tests linked to chapters
-        supabase
-          .from('tests')
-          .select('id, chapter_id')
-          .in('chapter_id', chapterIds),
+        inBatches(chapterIds, async (chunk) => {
+          const { data } = await supabase
+            .from('tests')
+            .select('id, chapter_id')
+            .in('chapter_id', chunk);
+          return data;
+        }).then((data) => ({ data })),
         
         // Test results for practice tests
         supabase
@@ -141,10 +174,13 @@ export const useChapterWiseProgress = (courseIds: string[]) => {
           .eq('student_id', user.id),
         
         // PYQ and Proficiency papers
-        supabase
-          .from('subject_previous_year_papers')
-          .select('id, subject_id, paper_category')
-          .in('subject_id', subjectIds),
+        inBatches(subjectIds, async (chunk) => {
+          const { data } = await supabase
+            .from('subject_previous_year_papers')
+            .select('id, subject_id, paper_category')
+            .in('subject_id', chunk);
+          return data;
+        }).then((data) => ({ data })),
         
         // Paper test results
         supabase
@@ -232,10 +268,13 @@ export const useChapterWiseProgress = (courseIds: string[]) => {
       const coursesMap: Record<string, CourseWithChapterProgress> = {};
 
       // Get course names from a quick query
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id, name')
-        .in('id', courseIds);
+      const courses = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('courses')
+          .select('id, name')
+          .in('id', chunk);
+        return data;
+      });
 
       (courses || []).forEach((c: any) => {
         coursesMap[c.id] = {

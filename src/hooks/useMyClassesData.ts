@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 
 interface ClassAttendance {
   id: string;
@@ -54,14 +55,17 @@ export const useMyClassesData = (studentId?: string) => {
       // Step 2: Get TOTAL scheduled classes from scheduled_classes table (only past classes)
       let totalScheduled = 0;
       if (courseIds.length > 0) {
-        const { count } = await supabase
-          .from('scheduled_classes')
-          .select('id', { count: 'exact', head: true })
-          .in('course_id', courseIds)
-          .eq('is_cancelled', false)
-          .lte('scheduled_at', new Date().toISOString());
+        const counts = await inBatches(courseIds, async (chunk) => {
+          const { count } = await supabase
+            .from('scheduled_classes')
+            .select('id', { count: 'exact', head: true })
+            .in('course_id', chunk)
+            .eq('is_cancelled', false)
+            .lte('scheduled_at', new Date().toISOString());
+          return [{ count: count || 0 }];
+        });
         
-        totalScheduled = count || 0;
+        totalScheduled = counts.reduce((sum, r) => sum + r.count, 0);
       }
 
       // Step 3: Get attendance records for this student

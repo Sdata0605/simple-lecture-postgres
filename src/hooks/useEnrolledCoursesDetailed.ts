@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 
 export const useEnrolledCoursesDetailed = () => {
   const { data, isLoading } = useQuery({
@@ -39,11 +40,14 @@ export const useEnrolledCoursesDetailed = () => {
           const chapterIds = chapters?.map(c => c.id) || [];
 
           // Get student progress for these chapters
-          const { data: progress } = await supabase
-            .from('student_progress')
-            .select('*')
-            .eq('student_id', user.id)
-            .in('chapter_id', chapterIds);
+          const progress = await inBatches(chapterIds, async (chunk) => {
+            const { data } = await supabase
+              .from('student_progress')
+              .select('*')
+              .eq('student_id', user.id)
+              .in('chapter_id', chunk);
+            return data;
+          });
 
           // Calculate overall progress
           const totalChapters = chapters?.length || 0;

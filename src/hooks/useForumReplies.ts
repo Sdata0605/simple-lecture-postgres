@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { withDisplayName } from '@/lib/displayName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,10 +41,13 @@ export function useForumReplies(postId: string) {
 
       // Fetch author profiles for non-AI replies
       const authorIds = [...new Set((data || []).filter(r => r.author_id).map(r => r.author_id!))];
-      const { data: profiles } = await supabase
-        .from('public_profiles')
-        .select('id, full_name, avatar_url, email_name')
-        .in('id', authorIds);
+      const profiles = await inBatches(authorIds, async (chunk) => {
+        const { data } = await supabase
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, email_name')
+          .in('id', chunk);
+        return data;
+      });
 
       const profileMap = new Map(profiles?.map(p => [p.id, withDisplayName(p)]) || []);
 

@@ -3,47 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEO';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { User, Mail, Phone, Calendar, Save, ArrowLeft, Lock, AlertTriangle, Trash2, Loader2 } from 'lucide-react';
+import { User, Mail, Phone, Calendar, Save, ArrowLeft, Camera, Trophy } from 'lucide-react';
+import { useBadgeSummary } from '@/hooks/useStudentBadges';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { BottomNav } from '@/components/mobile/BottomNav';
-
-const DELETE_WORD = 'DELETE';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { data: userData, isLoading, refetch } = useCurrentUser();
   const [isSaving, setIsSaving] = useState(false);
   const isMobile = useIsMobile();
+  const { summary: badgeSummary } = useBadgeSummary();
 
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
     dateOfBirth: '',
   });
-
-  // Delete-account dialog state
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (userData?.profile) {
@@ -57,7 +42,7 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!userData?.id) {
       toast.error('Please login to update profile');
       navigate('/auth');
@@ -88,44 +73,12 @@ const Profile = () => {
     }
   };
 
-  const closeDeleteDialog = (open: boolean) => {
-    if (isDeleting) return; // never close while the request is running
-    setDeleteOpen(open);
-    if (!open) {
-      setConfirmText('');
-      setDeleteError(null);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    setDeleteError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-my-account', { method: 'POST' });
-      if (error || data?.error) {
-        throw new Error(data?.error || 'Could not delete account. Please try again.');
-      }
-      await supabase.auth.signOut();
-      toast.success('Your account has been deleted');
-      navigate('/', { replace: true });
-    } catch (err: any) {
-      const message = err?.message || 'Could not delete account. Please try again.';
-      setDeleteError(message);
-      toast.error('Could not delete account. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col">
         {!isMobile && <DashboardHeader />}
-        <main className="flex-1 bg-muted/30">
-          <Skeleton className="h-40 md:h-48 rounded-b-3xl md:rounded-none" />
-          <div className="container mx-auto px-4 -mt-10 max-w-5xl space-y-6">
-            <Skeleton className="h-96 rounded-xl" />
-          </div>
+        <main className="flex-1 container mx-auto px-4 py-12">
+          <Skeleton className="h-96 mb-8" />
         </main>
         {isMobile ? <BottomNav /> : <Footer />}
       </div>
@@ -147,71 +100,105 @@ const Profile = () => {
     );
   }
 
-  const displayName = userData.profile?.full_name || userData.email?.split('@')[0] || 'User';
-  const initial = userData.profile?.full_name?.charAt(0) || userData.email?.charAt(0) || 'U';
-  const canDelete = confirmText === DELETE_WORD && !isDeleting;
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <SEOHead title="My Profile | SimpleLecture" description="Manage your profile settings" />
-      {!isMobile && <DashboardHeader />}
-
-      <main className="flex-1 bg-muted/30">
-        {/* Hero */}
-        <section className="bg-gradient-primary text-primary-foreground rounded-b-3xl md:rounded-none px-5 pt-10 pb-20 md:py-14">
-          <div className="container mx-auto max-w-5xl">
-            {isMobile && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="mb-4 -ml-2 text-primary-foreground hover:bg-white/10"
-                onClick={() => navigate(-1)}
-                aria-label="Go back"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            )}
-            <div className="flex flex-col items-center text-center md:flex-row md:text-left md:items-center md:gap-6">
-              <Avatar className="h-24 w-24 md:h-28 md:w-28 ring-4 ring-white/80 shadow-xl">
-                <AvatarImage src={userData.profile?.avatar_url || undefined} />
-                <AvatarFallback className="bg-white text-primary text-3xl font-bold">{initial}</AvatarFallback>
-              </Avatar>
-              <div className="mt-4 md:mt-0 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-bold truncate">{displayName}</h1>
-                <p className="text-sm text-primary-foreground/80 truncate">{userData.email}</p>
-              </div>
-            </div>
+  // Mobile layout
+  if (isMobile) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <SEOHead
+          title="My Profile | SimpleLecture"
+          description="Manage your profile settings"
+        />
+        
+        {/* Mobile Header with Avatar */}
+        <div className="bg-gradient-to-br from-primary via-primary to-primary px-4 pt-10 pb-16 rounded-b-[2rem]">
+          <div className="flex items-center gap-3 mb-6">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-white hover:bg-white/10"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-white text-lg font-bold">My Profile</h1>
           </div>
-        </section>
+          
+          {/* Centered Avatar */}
+          <div className="flex flex-col items-center">
+            <div className="relative">
+              <Avatar className="h-24 w-24 border-4 border-white shadow-lg">
+                <AvatarImage src={userData.profile?.avatar_url || undefined} />
+                <AvatarFallback className="text-2xl bg-white text-primary">
+                  {userData.profile?.full_name?.charAt(0) || userData.email?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <Button 
+                size="icon" 
+                className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-white text-primary hover:bg-gray-100 shadow-md"
+              >
+                <Camera className="h-4 w-4" />
+              </Button>
+            </div>
+            <h2 className="text-white text-xl font-bold mt-3">{userData.profile?.full_name || userData.email?.split('@')[0] || 'User'}</h2>
+            <p className="text-white/80 text-sm">{userData.email}</p>
+          </div>
+        </div>
 
-        {/* Body: one layout for phone and desktop */}
-        <div className="container mx-auto px-4 -mt-10 max-w-5xl pb-24 md:pb-12 grid gap-6 lg:grid-cols-3">
-          {/* Personal details */}
-          <Card className="lg:col-span-2 rounded-xl border-0 shadow-lg">
-            <form onSubmit={handleSubmit}>
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg font-semibold">Personal details</CardTitle>
-                <CardDescription>Keep your name, phone number and date of birth up to date.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="fullName" className="flex items-center gap-2 text-sm font-medium">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    Full name
+        {/* Profile Form */}
+        <main className="flex-1 bg-background px-4 -mt-8 pb-24">
+          {/* Badge Summary */}
+          <Card className="border-0 shadow-lg mb-4 cursor-pointer" onClick={() => navigate('/my-rewards')}>
+            <CardContent className="py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-amber-500" />
+                  <span className="text-sm font-semibold">My Badges</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span>🥈 {badgeSummary.silver}</span>
+                  <span>🥉 {badgeSummary.bronze}</span>
+                  <span>🥇 {badgeSummary.gold}</span>
+                  <span>⭐ {badgeSummary.master}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="fullName" className="flex items-center gap-2 text-sm text-muted-foreground mb-1.5">
+                    <User className="h-4 w-4" />
+                    Full Name
                   </Label>
                   <Input
                     id="fullName"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                     placeholder="Enter your full name"
-                    className="h-11 rounded-lg"
+                    className="h-11"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    Phone number
+                <div>
+                  <Label htmlFor="email" className="flex items-center gap-2 text-sm text-muted-foreground mb-1.5">
+                    <Mail className="h-4 w-4" />
+                    Email Address
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={userData.email || ''}
+                    disabled
+                    className="bg-muted h-11"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="phone" className="flex items-center gap-2 text-sm text-muted-foreground mb-1.5">
+                    <Phone className="h-4 w-4" />
+                    Phone Number
                   </Label>
                   <Input
                     id="phone"
@@ -219,129 +206,171 @@ const Profile = () => {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+91 XXXXX XXXXX"
-                    className="h-11 rounded-lg"
+                    className="h-11"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth" className="flex items-center gap-2 text-sm font-medium">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    Date of birth
+                <div>
+                  <Label htmlFor="dateOfBirth" className="flex items-center gap-2 text-sm text-muted-foreground mb-1.5">
+                    <Calendar className="h-4 w-4" />
+                    Date of Birth
                   </Label>
                   <Input
                     id="dateOfBirth"
                     type="date"
                     value={formData.dateOfBirth}
                     onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    className="h-11 rounded-lg"
+                    className="h-11"
                   />
                 </div>
-              </CardContent>
-              <CardFooter className="justify-end border-t pt-6">
-                <Button type="submit" size="lg" className="w-full sm:w-auto h-11 rounded-xl px-8" disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  {isSaving ? 'Saving...' : 'Save changes'}
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full bg-primary hover:bg-primary mt-4"
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
-              </CardFooter>
-            </form>
-          </Card>
-
-          {/* Account */}
-          <Card className="lg:col-span-1 rounded-xl border-0 shadow-lg">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg font-semibold">Account</CardTitle>
-              <CardDescription>Your sign-in details.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="email" className="flex items-center gap-2 text-sm font-medium">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                Email address
-              </Label>
-              <div className="relative">
-                <Input id="email" type="email" value={userData.email || ''} disabled className="h-11 rounded-lg bg-muted/60 pr-9 cursor-not-allowed" />
-                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              </div>
-              <p className="text-xs text-muted-foreground">Your email cannot be changed.</p>
+              </form>
             </CardContent>
           </Card>
+        </main>
 
-          {/* Danger zone */}
-          <Card className="lg:col-span-3 rounded-xl border border-destructive/30 bg-destructive/5 shadow-none">
-            <CardContent className="flex flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 mt-0.5 text-destructive shrink-0" />
-                <div>
-                  <p className="font-semibold text-destructive">Delete account</p>
-                  <p className="text-sm text-muted-foreground">
-                    Permanently delete your account, enrolments, progress and test results. This cannot be undone.
-                  </p>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  // Desktop layout
+  return (
+    <div className="min-h-screen flex flex-col">
+      <SEOHead
+        title="My Profile | SimpleLecture"
+        description="Manage your profile settings"
+      />
+      <DashboardHeader />
+
+      <main className="flex-1 bg-muted/30">
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-3xl mx-auto">
+            {/* Profile Header */}
+            <Card className="mb-6">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-6">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={userData.profile?.avatar_url || undefined} />
+                    <AvatarFallback className="text-2xl">
+                      {userData.profile?.full_name?.charAt(0) || userData.email?.charAt(0) || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h1 className="text-3xl font-bold">{userData.profile?.full_name || userData.email?.split('@')[0] || 'User'}</h1>
+                    <p className="text-muted-foreground">{userData.email}</p>
+                  </div>
                 </div>
-              </div>
-              <Button
-                type="button"
-                variant="destructive"
-                className="w-full sm:w-auto rounded-xl"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete account
-              </Button>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Badge Summary */}
+            <Card className="mb-6 cursor-pointer hover:border-primary transition-colors" onClick={() => navigate('/my-rewards')}>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-amber-500" />
+                    <span className="font-semibold">My Rewards</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span>🥈 {badgeSummary.silver}</span>
+                    <span>🥉 {badgeSummary.bronze}</span>
+                    <span>🥇 {badgeSummary.gold}</span>
+                    <span>⭐ {badgeSummary.master}</span>
+                    <span>🎓 {badgeSummary.course_complete}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Profile Form */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Profile Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  <div>
+                    <Label htmlFor="fullName" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      Full Name
+                    </Label>
+                    <Input
+                      id="fullName"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      placeholder="Enter your full name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="email" className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={userData.email || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phone" className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      Phone Number
+                    </Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+91 XXXXX XXXXX"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="dateOfBirth" className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Date of Birth
+                    </Label>
+                    <Input
+                      id="dateOfBirth"
+                      type="date"
+                      value={formData.dateOfBirth}
+                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full"
+                    disabled={isSaving}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isSaving ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
 
-      <AlertDialog open={deleteOpen} onOpenChange={closeDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-              Delete your account?
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 text-sm">
-                <p>This permanently removes:</p>
-                <ul className="list-disc pl-5 space-y-1">
-                  <li>your profile and personal details</li>
-                  <li>your course enrolments and progress</li>
-                  <li>your test, DPP and assignment results</li>
-                </ul>
-                <p className="font-medium">This cannot be undone.</p>
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="confirmDelete" className="text-sm font-medium">
-                    Type <span className="font-mono font-semibold">{DELETE_WORD}</span> to confirm
-                  </Label>
-                  <Input
-                    id="confirmDelete"
-                    value={confirmText}
-                    onChange={(e) => setConfirmText(e.target.value)}
-                    autoComplete="off"
-                    disabled={isDeleting}
-                    className="h-11 rounded-lg"
-                  />
-                </div>
-                {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            {/* A plain button, not AlertDialogAction, so the dialog stays open while the request runs */}
-            <Button variant="destructive" disabled={!canDelete} onClick={handleDeleteAccount} className="rounded-xl">
-              {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting account...
-                </>
-              ) : (
-                'Delete my account'
-              )}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {isMobile ? <BottomNav /> : <Footer />}
+      <Footer />
     </div>
   );
 };

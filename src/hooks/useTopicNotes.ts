@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 
 export interface NotesSegment {
   text?: string;
@@ -80,18 +81,23 @@ export function useTopicNotes(topicId?: string | null) {
       const docIds = (docs || []).map((d) => d.id);
       let job: any = null;
       if (docIds.length) {
-        const { data: jobs, error: jobsErr } = await supabase
-          .from("video_generation_jobs")
-          .select(
-            "id, presentation_json, updated_at, created_at, external_job_id, server_ip"
-          )
-          .in("document_id", docIds)
-          .eq("is_published", true)
-          .eq("status", "completed")
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (jobsErr) throw jobsErr;
-        job = jobs?.[0] || null;
+        const jobs = await inBatches(docIds, async (chunk) => {
+          const { data, error } = await supabase
+            .from("video_generation_jobs")
+            .select(
+              "id, presentation_json, updated_at, created_at, external_job_id, server_ip"
+            )
+            .in("document_id", chunk)
+            .eq("is_published", true)
+            .eq("status", "completed")
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (error) throw error;
+          return data;
+        });
+        // Each chunk returns its own newest row; pick the newest across chunks.
+        jobs.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        job = jobs[0] || null;
       }
 
       let rawSections: any[] = Array.isArray(job?.presentation_json?.sections)
@@ -177,10 +183,13 @@ export function useTopicNotes(topicId?: string | null) {
           new Set(allQuestions.map((q) => q.subtopic_id).filter(Boolean) as string[])
         );
         if (subIds.length) {
-          const { data: subs } = await supabase
-            .from("subtopics")
-            .select("id, title")
-            .in("id", subIds);
+          const subs = await inBatches(subIds, async (chunk) => {
+            const { data } = await supabase
+              .from("subtopics")
+              .select("id, title")
+              .in("id", chunk);
+            return data;
+          });
           (subs || []).forEach((sub: any) => {
             const match = sections.find((sec) =>
               sec.title.toLowerCase().includes(sub.title.toLowerCase()) ||

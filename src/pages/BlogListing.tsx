@@ -2,11 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 import { SEOHead } from "@/components/SEO/SEOHead";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { BottomNav } from "@/components/mobile/BottomNav";
 import { Badge } from "@/components/ui/badge";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Calendar, ArrowRight, BookOpen, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 
@@ -23,7 +21,6 @@ interface BlogPost {
 }
 
 const BlogListing = () => {
-  const isMobile = useIsMobile();
   const { data: posts, isLoading } = useQuery({
     queryKey: ["blog-posts"],
     queryFn: async () => {
@@ -59,12 +56,11 @@ const BlogListing = () => {
         canonicalUrl="https://simplelecture.com/blog"
         structuredData={structuredData}
       />
-      <div className="min-h-screen flex flex-col">
-        {!isMobile && <DashboardHeader />}
-      <main className="flex-1 bg-muted/30">
+      <Header />
+      <main className="min-h-screen bg-background">
         {/* Hero */}
-        <section className="relative py-10 md:py-14 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-muted/30 to-accent/8" />
+        <section className="relative py-16 md:py-24 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-accent/8" />
           <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, hsl(var(--foreground)) 1px, transparent 0)', backgroundSize: '32px 32px' }} />
           <div className="container mx-auto px-4 max-w-6xl relative z-10">
             <div className="flex items-center gap-2 mb-4">
@@ -82,7 +78,7 @@ const BlogListing = () => {
         </section>
 
         <section className="py-12 md:py-16">
-          <div className="container mx-auto px-4 max-w-5xl pb-24 md:pb-12">
+          <div className="container mx-auto px-4 max-w-6xl">
             {isLoading ? (
               <div className="space-y-8">
                 <div className="h-[400px] rounded-2xl bg-muted animate-pulse" />
@@ -97,7 +93,7 @@ const BlogListing = () => {
                 {/* Featured Post */}
                 {featuredPost && (
                   <Link to={`/blog/${featuredPost.slug}`} className="group block">
-                    <article className="relative rounded-2xl overflow-hidden border border-border/40 border-0 bg-card shadow-lg hover:shadow-xl transition-all duration-500">
+                    <article className="relative rounded-2xl overflow-hidden border border-border/40 bg-card shadow-sm hover:shadow-xl transition-all duration-500">
                       <div className="grid md:grid-cols-2">
                         <div className="relative h-64 md:h-[420px] overflow-hidden">
                           {featuredPost.featured_image_url ? (
@@ -148,7 +144,7 @@ const BlogListing = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {remainingPosts.map((post) => (
                       <Link key={post.id} to={`/blog/${post.slug}`} className="group block">
-                        <article className="h-full rounded-xl overflow-hidden border border-border/40 border-0 bg-card shadow-lg hover:shadow-lg hover:border-primary/20 transition-all duration-400">
+                        <article className="h-full rounded-xl overflow-hidden border border-border/40 bg-card hover:shadow-lg hover:border-primary/20 transition-all duration-400">
                           <div className="relative h-52 overflow-hidden">
                             {post.featured_image_url ? (
                               <img
@@ -202,8 +198,7 @@ const BlogListing = () => {
           </div>
         </section>
       </main>
-        {isMobile ? <BottomNav /> : <Footer />}
-      </div>
+      <Footer />
     </>
   );
 };

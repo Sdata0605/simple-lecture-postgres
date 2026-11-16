@@ -1,7 +1,7 @@
 /**
  * Voice Lock Utility
  * Ensures only one feature can use the microphone at a time.
- * Prevents conflicts between VisualTutor and SalesAssistant.
+ * Prevents conflicts between AITeachingAssistant and SalesAssistant.
  */
 
 type VoiceOwner = 'teaching' | 'sales' | 'doubts' | 'askAssistant' | null;

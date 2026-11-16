@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 import { toast } from "@/hooks/use-toast";
 import { refreshLearningResults } from "@/lib/refreshLearningResults";
 
@@ -69,10 +70,13 @@ export const useTestResults = (subjectId?: string | null, topicId?: string | nul
 
       const questionScopeById = new Map<string, { topic_id: string | null; chapter_id: string | null }>();
       if (answeredQuestionIds.length > 0) {
-        const { data: questionRows } = await supabase
-          .from("questions")
-          .select("id, topic_id, chapter_id")
-          .in("id", answeredQuestionIds);
+        const questionRows = await inBatches(answeredQuestionIds, async (chunk) => {
+          const { data } = await supabase
+            .from("questions")
+            .select("id, topic_id, chapter_id")
+            .in("id", chunk);
+          return data;
+        });
 
         (questionRows || []).forEach((q: any) => {
           questionScopeById.set(q.id, { topic_id: q.topic_id || null, chapter_id: q.chapter_id || null });
@@ -101,10 +105,13 @@ export const useTestResults = (subjectId?: string | null, topicId?: string | nul
         subjectChapterIds = new Set((chapterRows || []).map((c: any) => c.id));
 
         if (subjectChapterIds.size > 0) {
-          const { data: topicRows } = await supabase
-            .from("subject_topics")
-            .select("id, chapter_id")
-            .in("chapter_id", Array.from(subjectChapterIds));
+          const topicRows = await inBatches(Array.from(subjectChapterIds), async (chunk) => {
+            const { data } = await supabase
+              .from("subject_topics")
+              .select("id, chapter_id")
+              .in("chapter_id", chunk);
+            return data;
+          });
           subjectTopicIds = new Set((topicRows || []).map((t: any) => t.id));
         } else {
           subjectTopicIds = new Set();

@@ -1,8 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import {
-  startAiTeachingAssistantJob,
-  type AiTeachingAssistantJobHandle,
-} from '@/lib/invokeAiTeachingAssistant';
+import { invokeAiTeachingAssistantDirect } from '@/lib/invokeAiTeachingAssistant';
 import type { TeachingResponse, PresentationSlide } from '@/hooks/useTeachingAssistant';
 
 function normalizeResponse(data: any): TeachingResponse {
@@ -141,12 +138,6 @@ export interface AIJob {
   presentationStarted: boolean; // true once the user has begun watching the presentation
   startedAt: number;
   finishedAt?: number;
-  stage?: string; // backend job stage while pending: validating | contacting | waiting | retrying | received
-  attempt?: number;
-  maxAttempts?: number;
-  elapsedSec?: number;
-  errorCode?: string; // backend error code when status === 'error'
-  retryable?: boolean;
 }
 
 interface Ctx {
@@ -158,7 +149,6 @@ interface Ctx {
   acknowledgeAndConfirm: () => void; // user clicked "Start presentation" — flips requiresConfirmation off
   markPresentationStarted: () => void; // user is now watching — disables the "ready" nav gate
   clearJob: () => void;
-  cancelJob: () => void; // cancels the in-flight request (if any) and clears the job
 }
 
 const AIAssistantJobContext = createContext<Ctx | null>(null);
@@ -166,7 +156,6 @@ const AIAssistantJobContext = createContext<Ctx | null>(null);
 export function AIAssistantJobProvider({ children }: { children: ReactNode }) {
   const [job, setJob] = useState<AIJob | null>(null);
   const activeRef = useRef(false);
-  const cancelRef = useRef<AiTeachingAssistantJobHandle | null>(null);
   const [, force] = useState(0);
 
   const markActive = useCallback(() => {
@@ -197,28 +186,7 @@ export function AIAssistantJobProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const cancelJob = useCallback(() => {
-    console.log('[AIGate] cancelJob called');
-    const handle = cancelRef.current;
-    cancelRef.current = null;
-    handle?.cancel();
-    setJob(null);
-  }, []);
-
-  // Stop any in-flight request when the provider unmounts.
-  useEffect(() => {
-    return () => {
-      const handle = cancelRef.current;
-      cancelRef.current = null;
-      handle?.cancel();
-    };
-  }, []);
-
   const startJob = useCallback(async (params: AIJobParams): Promise<TeachingResponse | null> => {
-    // A newer question supersedes any older one still in flight.
-    cancelRef.current?.cancel();
-    cancelRef.current = null;
-
     const id = `aijob-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const newJob: AIJob = {
       id,
@@ -236,55 +204,16 @@ export function AIAssistantJobProvider({ children }: { children: ReactNode }) {
       // The CPU already returns pre-generated answers when available
       // (data.cached === true / semantic_match), so no separate Supabase
       // cache lookup is needed.
-      const handle = startAiTeachingAssistantJob(
-        {
-          mode: 'full',
-          question: params.question,
-          subjectName: params.subjectName,
-          subjectId: params.subjectId ?? params.topicId ?? params.chapterId,
-          language: params.language || 'en-US',
-          userTier: params.userTier || 'pro',
-        },
-        {
-          onProgress: p => {
-            setJob(j => j && j.id === id && j.status === 'pending' ? {
-              ...j,
-              stage: p.stage,
-              attempt: p.attempt,
-              maxAttempts: p.maxAttempts,
-              elapsedSec: p.elapsedSec,
-            } : j);
-          },
-        },
-      );
-      cancelRef.current = handle;
-      let outcome: Awaited<typeof handle.promise>;
-      try {
-        outcome = await handle.promise;
-      } finally {
-        if (cancelRef.current === handle) cancelRef.current = null;
-      }
-      const { data: liveData, error } = outcome;
-
-      if (error) {
-        // Cancelled by the user or superseded by a newer question: nothing to show.
-        if (error.code === 'cancelled') return null;
-        const message = error.message || 'Failed to get response from AI tutor';
-        setJob(j => j && j.id === id ? {
-          ...j,
-          status: 'error',
-          error: message,
-          errorCode: error.code,
-          retryable: error.retryable,
-          finishedAt: Date.now(),
-        } : j);
-        return null;
-      }
-      if (liveData?.error) {
-        const message = typeof liveData.error === 'string' ? liveData.error : 'Failed to get response from AI tutor';
-        setJob(j => j && j.id === id ? { ...j, status: 'error', error: message, finishedAt: Date.now() } : j);
-        return null;
-      }
+      const { data: liveData, error } = await invokeAiTeachingAssistantDirect({
+        mode: 'full',
+        question: params.question,
+        subjectName: params.subjectName,
+        subjectId: params.subjectId ?? params.topicId ?? params.chapterId,
+        language: params.language || 'en-US',
+        userTier: params.userTier || 'pro',
+      });
+      if (error) throw error;
+      if (liveData?.error) throw new Error(liveData.error);
       const data = liveData;
 
       const normalized = normalizeResponse(data);
@@ -334,7 +263,6 @@ export function AIAssistantJobProvider({ children }: { children: ReactNode }) {
         acknowledgeAndConfirm,
         markPresentationStarted,
         clearJob,
-        cancelJob,
       }}
     >
       {children}

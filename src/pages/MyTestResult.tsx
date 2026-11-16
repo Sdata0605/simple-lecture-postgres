@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Loader2, ArrowLeft, BookOpen, Target, CheckCircle2, XCircle, Clock, Sparkles } from 'lucide-react';
@@ -30,120 +31,6 @@ const cleanOcrText = (s: string | null | undefined): string => {
     .trim();
 };
 import { PerformanceTierBanner, getTier } from '@/components/tests/PerformanceTierBanner';
-import { buildQuestionReview, type QuestionReviewRow } from '@/lib/myTestReview';
-import { stripInlineOptions } from '@/lib/stripInlineOptions';
-
-const reviewBadgeClass = {
-  correct: 'bg-green-600 hover:bg-green-600 text-white',
-  incorrect: '',
-  not_answered: '',
-  graded: '',
-} as const;
-
-const reviewStatusLabel = {
-  correct: 'Correct',
-  incorrect: 'Incorrect',
-  not_answered: 'Not answered',
-  graded: 'AI graded',
-} as const;
-
-const reviewStatusVariant = {
-  correct: 'default',
-  incorrect: 'destructive',
-  not_answered: 'secondary',
-  graded: 'outline',
-} as const;
-
-const QuestionReviewItem = ({ row }: { row: QuestionReviewRow }) => {
-  const questionText = row.section === 'mcq' && row.options.length > 0
-    ? stripInlineOptions(cleanOcrText(row.question_text), true)
-    : cleanOcrText(row.question_text);
-
-  return (
-    <div className="border rounded-lg p-3 space-y-3 min-w-0">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm font-medium flex-1 min-w-0 break-words whitespace-pre-wrap">
-          <span className="text-muted-foreground">Q{row.number}.</span> {questionText}
-        </p>
-        <Badge variant={reviewStatusVariant[row.status]} className={`shrink-0 ${reviewBadgeClass[row.status]}`}>
-          {reviewStatusLabel[row.status]}
-        </Badge>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Marks: <span className="font-medium text-foreground">{row.marks_awarded}/{row.max_marks}</span>
-      </p>
-
-      {row.section === 'mcq' && (
-        <div className="space-y-1.5">
-          {row.options.length === 0 && (
-            <p className="text-xs text-muted-foreground">No options available for this question.</p>
-          )}
-          {row.options.map((o) => (
-            <div
-              key={o.key}
-              className={[
-                'flex items-start gap-2 text-sm border rounded-md p-2 min-w-0',
-                o.isCorrect ? 'border-green-500/60 bg-green-500/10' : '',
-                o.isSelected && !o.isCorrect ? 'border-destructive/60 bg-destructive/10' : '',
-              ].join(' ')}
-            >
-              <span className="font-semibold shrink-0">{o.key}.</span>
-              <span className="flex-1 min-w-0 break-words">{o.text}</span>
-              <span className="shrink-0 flex flex-col items-end gap-1">
-                {o.isSelected && (
-                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Your answer</Badge>
-                )}
-                {o.isCorrect && (
-                  <Badge className="text-[10px] px-1.5 py-0 bg-green-600 hover:bg-green-600 text-white">Correct</Badge>
-                )}
-              </span>
-            </div>
-          ))}
-          {row.status === 'not_answered' && (
-            <p className="text-xs text-muted-foreground">Not answered. You did not choose an option for this question.</p>
-          )}
-        </div>
-      )}
-
-      {row.section === 'written' && (
-        <div className="space-y-2 text-xs">
-          {row.status === 'not_answered' ? (
-            <p className="text-muted-foreground">Not answered.</p>
-          ) : (
-            <>
-              {(row.extracted_text || row.answer_text) && (
-                <div>
-                  <p className="font-medium text-foreground">
-                    Your answer{row.extracted_text ? ' (extracted from image)' : ''}:
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap break-words opacity-80">
-                    {cleanOcrText(row.extracted_text || row.answer_text)}
-                  </p>
-                </div>
-              )}
-              {row.answer_image_url && (
-                <a href={row.answer_image_url} target="_blank" rel="noreferrer" className="text-primary underline">
-                  View uploaded image
-                </a>
-              )}
-              {row.ai_feedback && (
-                <p className="text-muted-foreground">
-                  <span className="font-medium text-foreground">AI feedback:</span> {row.ai_feedback}
-                </p>
-              )}
-            </>
-          )}
-          {row.correct_answer && (
-            <div className="p-2 rounded border border-green-500/20 bg-green-500/5">
-              <p className="font-medium text-green-700 dark:text-green-400">Correct answer:</p>
-              <p className="mt-1 whitespace-pre-wrap break-words opacity-90">{cleanOcrText(row.correct_answer)}</p>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
 
 const Inner = ({ id }: { id: string }) => {
   const { data: test, isLoading: tL } = useSelfTest(id);
@@ -179,18 +66,22 @@ const Inner = ({ id }: { id: string }) => {
     queryKey: ['self-test-chapter-names', chapterIds],
     enabled: chapterIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('subject_chapters').select('id, title').in('id', chapterIds);
-      if (error) throw error;
-      return data || [];
+      return inBatches(chapterIds, async (chunk) => {
+        const { data, error } = await supabase.from('subject_chapters').select('id, title').in('id', chunk);
+        if (error) throw error;
+        return data;
+      });
     },
   });
   const { data: topicRows = [] } = useQuery({
     queryKey: ['self-test-topic-names', topicIds],
     enabled: topicIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase.from('subject_topics').select('id, title').in('id', topicIds);
-      if (error) throw error;
-      return data || [];
+      return inBatches(topicIds, async (chunk) => {
+        const { data, error } = await supabase.from('subject_topics').select('id, title').in('id', chunk);
+        if (error) throw error;
+        return data;
+      });
     },
   });
   const chapterNameMap = useMemo(() => new Map((chapterRows as any[]).map((r) => [r.id, r.title])), [chapterRows]);
@@ -247,8 +138,6 @@ const Inner = ({ id }: { id: string }) => {
 
     return { byTopic, byChapter, weakTopics, writtenFeedback };
   }, [questions, answers]);
-
-  const reviewRows = useMemo(() => buildQuestionReview(questions, answers), [questions, answers]);
 
   if (tL || qL || aL) {
     return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
@@ -348,20 +237,6 @@ const Inner = ({ id }: { id: string }) => {
                 </div>
                 <Progress value={c.accuracy ?? 0} className="h-2" />
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {reviewRows.length > 0 && (
-        <Card className="p-5">
-          <h3 className="font-semibold mb-1">Question review</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            {reviewRows.filter((r) => r.status !== 'not_answered').length} of {reviewRows.length} answered
-          </p>
-          <div className="space-y-3">
-            {reviewRows.map((row) => (
-              <QuestionReviewItem key={row.id} row={row} />
             ))}
           </div>
         </Card>

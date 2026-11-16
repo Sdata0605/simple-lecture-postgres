@@ -25,7 +25,7 @@ export function AIAssistantBackgroundUI() {
   if (!job) return null;
 
   // Don't render anything when the AI tab is currently active — the inline
-  // confirmation card inside VisualTutor takes over.
+  // confirmation card inside AITeachingAssistant takes over.
   const showPill = job.status === 'pending' && !isActive;
   const showReadyDialog = job.status === 'ready' && job.requiresConfirmation && !isActive;
   const showErrorDialog = job.status === 'error' && !isActive;

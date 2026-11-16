@@ -36,6 +36,3 @@ secrets.json
 
 # Local Cursor agent helpers (run-dev.ps1 etc.) — never deploy
 .cursor/
-
-# Supabase backend (edge functions, migrations) is not part of the UI repo
-supabase/

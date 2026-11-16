@@ -3,10 +3,9 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SEOHead } from "@/components/SEO/SEOHead";
 import { generateBreadcrumbSchema, generateFAQSchema } from "@/lib/seo/structuredData";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/mobile/BottomNav";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -60,7 +59,6 @@ const getArticleIcon = (iconName: string): LucideIcon => {
 
 const Support = () => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showChat, setShowChat] = useState(false);
@@ -204,7 +202,7 @@ const Support = () => {
   const showFeedback = messages.length > 0 && messages[messages.length - 1]?.role === 'assistant';
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <>
       <SEOHead
         title="Help Center & FAQs"
         description="Get help with your SimpleLecture account, payments, courses, and more. Browse FAQs or chat with our AI support assistant."
@@ -221,16 +219,15 @@ const Support = () => {
               { question: "How do I reset my password?", answer: "Go to the login page and click 'Forgot Password'. Enter your registered email and follow the reset link sent to your inbox." },
               { question: "How do I access my purchased course?", answer: "Log in to your SimpleLecture account, go to 'My Courses' in the dashboard, and click on the course to start learning." },
               { question: "What payment methods are accepted?", answer: "We accept UPI, credit/debit cards, net banking, and popular wallets through Razorpay and PhonePe." },
-              { question: "Can I get a refund?", answer: "Refund requests must be made within 7 days of purchase. Contact our support team with your order details for assistance." },
               { question: "How does the AI tutor work?", answer: "Our AI tutor provides personalized explanations, clears doubts instantly in English, Hindi, and Kannada, and generates practice questions tailored to your learning gaps." },
             ]),
           ]
         }}
       />
       
-      {!isMobile && <DashboardHeader />}
-
-      <main className="flex-1 bg-muted/30">
+      <Header />
+      
+      <main className="min-h-screen bg-background pb-20 md:pb-0">
         {/* Hero Section */}
         <section className="bg-gradient-to-b from-primary/5 to-background py-8 md:py-16">
           <div className="container mx-auto px-4">
@@ -261,7 +258,7 @@ const Support = () => {
           </div>
         </section>
 
-        <div className="container mx-auto px-4 max-w-5xl pt-4 md:pt-8 pb-24 md:pb-12">
+        <div className="container mx-auto px-4 py-4 md:py-8">
           <Tabs value={mainTab} onValueChange={setMainTab} className="w-full max-w-4xl mx-auto">
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="articles" className="gap-1 sm:gap-2">
@@ -298,7 +295,7 @@ const Support = () => {
                         onOpenChange={(open) => setExpandedArticle(open ? article.id : null)}
                         className={isExpanded ? "md:col-span-2 lg:col-span-3" : ""}
                       >
-                        <Card className="rounded-xl border-0 shadow-lg hover:shadow-xl transition-all">
+                        <Card className="hover:shadow-md transition-all">
                           <CollapsibleTrigger asChild>
                             <div className="cursor-pointer">
                               <CardHeader>
@@ -539,7 +536,7 @@ const Support = () => {
                     {isAuthenticated ? (
                       <SupportTicketForm onSubmit={handleStartChat} isLoading={chatLoading} />
                     ) : (
-                      <Card className="max-w-md mx-auto rounded-xl border-0 shadow-lg">
+                      <Card className="max-w-md mx-auto">
                         <CardContent className="py-8 text-center">
                           <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                           <h3 className="font-semibold mb-2">Login Required</h3>
@@ -587,7 +584,7 @@ const Support = () => {
                   </div>
                 )
               ) : (
-                <Card className="rounded-xl border-0 shadow-lg">
+                <Card>
                   <CardContent className="py-12 text-center">
                     <Ticket className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium mb-2">Login Required</h3>
@@ -605,8 +602,9 @@ const Support = () => {
         </div>
       </main>
       
-      {isMobile ? <BottomNav /> : <Footer />}
-    </div>
+      <Footer />
+      <BottomNav />
+    </>
   );
 };
 

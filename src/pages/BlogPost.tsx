@@ -3,12 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { goHome } from "@/lib/goHome";
 import { SEOHead } from "@/components/SEO/SEOHead";
-import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
+import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { BottomNav } from "@/components/mobile/BottomNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { Calendar, ArrowLeft, BookOpen, Share2, Link as LinkIcon, Clock, Hash } from "lucide-react";
 import { format } from "date-fns";
 import { useState, useMemo } from "react";
@@ -47,7 +45,6 @@ const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
-  const isMobile = useIsMobile();
 
   const { data: post, isLoading } = useQuery({
     queryKey: ["blog-post", slug],
@@ -89,9 +86,9 @@ const BlogPost = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        {!isMobile && <DashboardHeader />}
-        <main className="flex-1 bg-muted/30">
+      <>
+        <Header />
+        <main className="min-h-screen bg-background">
           <div className="animate-pulse">
             <div className="h-[360px] bg-muted" />
             <div className="container mx-auto px-4 max-w-4xl py-12 space-y-8">
@@ -105,16 +102,16 @@ const BlogPost = () => {
             </div>
           </div>
         </main>
-        {isMobile ? <BottomNav /> : <Footer />}
-      </div>
+        <Footer />
+      </>
     );
   }
 
   if (!post) {
     return (
-      <div className="min-h-screen flex flex-col">
-        {!isMobile && <DashboardHeader />}
-        <main className="flex-1 bg-muted/30 flex items-center justify-center">
+      <>
+        <Header />
+        <main className="min-h-screen bg-background flex items-center justify-center">
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-2">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
@@ -125,8 +122,8 @@ const BlogPost = () => {
             </Link>
           </div>
         </main>
-        {isMobile ? <BottomNav /> : <Footer />}
-      </div>
+        <Footer />
+      </>
     );
   }
 
@@ -146,9 +143,8 @@ const BlogPost = () => {
         ogType="article"
         structuredData={structuredData}
       />
-      <div className="min-h-screen flex flex-col">
-        {!isMobile && <DashboardHeader />}
-        <main className="flex-1 bg-muted/30">
+      <Header />
+      <main className="min-h-screen bg-background">
         {/* Hero */}
         <div className="relative">
           {post.featured_image_url ? (
@@ -160,10 +156,10 @@ const BlogPost = () => {
                 decoding="async"
                 {...({ fetchpriority: 'high' } as any)}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-muted/30 via-muted/60 to-muted/20" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/20" />
             </div>
           ) : (
-            <div className="h-[200px] md:h-[280px] bg-gradient-to-br from-primary/10 via-muted/30 to-accent/10" />
+            <div className="h-[200px] md:h-[280px] bg-gradient-to-br from-primary/10 via-background to-accent/10" />
           )}
 
           <div className="container mx-auto px-4 max-w-4xl relative z-10" style={{ marginTop: post.featured_image_url ? '-120px' : '-60px' }}>
@@ -202,7 +198,7 @@ const BlogPost = () => {
           </div>
         </div>
 
-        <article className="container mx-auto px-4 max-w-4xl pb-24 md:pb-16">
+        <article className="container mx-auto px-4 max-w-4xl pb-16">
           {/* Table of Contents */}
           {sections.length > 2 && (
             <div className="mb-12 p-6 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm">
@@ -332,9 +328,8 @@ const BlogPost = () => {
             </Link>
           </div>
         </article>
-        </main>
-        {isMobile ? <BottomNav /> : <Footer />}
-      </div>
+      </main>
+      <Footer />
     </>
   );
 };

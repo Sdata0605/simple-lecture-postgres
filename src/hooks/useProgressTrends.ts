@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, subDays, eachDayOfInterval, parseISO } from "date-fns";
+import { inBatches } from "@/lib/batchIn";
 
 interface ChapterProgress {
   id: string;
@@ -70,10 +71,13 @@ export const useProgressTrends = (options: UseProgressTrendsOptions = {}) => {
         subjectIds = courseSubjects?.map((cs: any) => cs.subject_id) || [];
       } else if (enrolledCourseIds.length > 0) {
         // All enrolled courses - filter by student's enrollments
-        const { data: courseSubjects } = await supabase
-          .from("course_subjects")
-          .select("subject_id")
-          .in("course_id", enrolledCourseIds);
+        const courseSubjects = await inBatches(enrolledCourseIds, async (chunk) => {
+          const { data } = await supabase
+            .from("course_subjects")
+            .select("subject_id")
+            .in("course_id", chunk);
+          return data;
+        });
         
         subjectIds = [...new Set(courseSubjects?.map((cs: any) => cs.subject_id) || [])];
       }
@@ -114,10 +118,13 @@ export const useProgressTrends = (options: UseProgressTrendsOptions = {}) => {
       }
 
       // Get all chapters with video_platform and ai_presentation_json
-      const { data: allSubjectChapters } = await supabase
-        .from("subject_chapters")
+      const allSubjectChapters = await inBatches(subjectIds, async (chunk) => {
+        const { data } = await supabase
+          .from("subject_chapters")
         .select("id, subject_id, title, video_id, video_platform, ai_generated_video_url, ai_presentation_json, popular_subjects!inner(id, name)")
-        .in("subject_id", subjectIds);
+          .in("subject_id", chunk);
+        return data;
+      });
 
       // Filter chapters by subject name if specified
       let filteredChapters = allSubjectChapters || [];

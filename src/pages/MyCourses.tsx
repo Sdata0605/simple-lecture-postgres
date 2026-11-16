@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { CategoryIcon } from "@/components/CategoryIcon";
 import { useNavigate, Link } from 'react-router-dom';
 import { SEOHead } from '@/components/SEO';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
@@ -134,7 +133,7 @@ const MyCourses = () => {
                       : 'bg-background text-muted-foreground border border-border'
                   }`}
                 >
-                  {cat.icon && <span className="mr-1"><CategoryIcon icon={cat.icon} size="sm" /></span>}
+                  {cat.icon && <span className="mr-1">{cat.icon}</span>}
                   {cat.name}
                 </button>
               ))}
@@ -281,7 +280,7 @@ const MyCourses = () => {
                   value={category.id}
                   className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                 >
-                  {category.icon && <span className="mr-2"><CategoryIcon icon={category.icon} size="sm" /></span>}
+                  {category.icon && <span className="mr-2">{category.icon}</span>}
                   {category.name}
                 </TabsTrigger>
               ))}

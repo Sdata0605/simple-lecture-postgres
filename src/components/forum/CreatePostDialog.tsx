@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,11 @@ const CreatePostDialog: React.FC<CreatePostDialogProps> = ({
   const [content, setContent] = useState('');
   const [categoryId, setCategoryId] = useState(defaultCategoryId || '');
   const createPost = useCreateForumPost();
+
+  // The category can arrive after the dialog mounts (the page loads it), so follow the prop whenever the dialog opens.
+  useEffect(() => {
+    if (open && defaultCategoryId) setCategoryId(defaultCategoryId);
+  }, [open, defaultCategoryId]);
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim() || !categoryId) return;

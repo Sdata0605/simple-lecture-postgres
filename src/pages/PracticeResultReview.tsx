@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 
@@ -92,11 +93,13 @@ const Inner = ({ resultId }: { resultId: string }) => {
       let questions: any[] = [];
       if (questionIds.length > 0) {
         try {
-          const { data: qData } = await supabase
-            .from('questions')
-            .select('id, question_text, question_image_url, question_format, question_type, options, correct_answer, explanation, marks, difficulty')
-            .in('id', questionIds);
-          questions = qData || [];
+          questions = await inBatches(questionIds, async (chunk) => {
+            const { data } = await supabase
+              .from('questions')
+              .select('id, question_text, question_image_url, question_format, question_type, options, correct_answer, explanation, marks, difficulty')
+              .in('id', chunk);
+            return data;
+          });
         } catch (e) {
           console.warn('[review] questions fetch failed, rendering answers only', e);
         }

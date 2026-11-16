@@ -17,9 +17,7 @@ const FlagContentDialog: React.FC<FlagContentDialogProps> = ({ open, onOpenChang
 
   const handleSubmit = async () => {
     if (!reason.trim() || !target) return;
-    await flagPost.mutateAsync(
-      target.type === 'reply' ? { replyId: target.id, reason } : { postId: target.id, reason },
-    );
+    await flagPost.mutateAsync({ postId: target.id, reason });
     setReason('');
     onOpenChange(false);
   };

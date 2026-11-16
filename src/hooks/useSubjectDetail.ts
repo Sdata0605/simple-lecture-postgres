@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 
 export const useSubjectDetail = (subjectSlug?: string) => {
   return useQuery({
@@ -143,14 +144,16 @@ export const useCheckSubjectEnrollment = (subjectId?: string) => {
 
       const courseIds = courseSubjects.map((cs: any) => cs.course_id);
 
-      const { data: enrollments, error: enrollError } = await supabase
-        .from("enrollments")
-        .select("course_id, is_active")
-        .eq("student_id", user.id)
-        .in("course_id", courseIds)
-        .eq("is_active", true);
-
-      if (enrollError) throw enrollError;
+      const enrollments = await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from("enrollments")
+          .select("course_id, is_active")
+          .eq("student_id", user.id)
+          .in("course_id", chunk)
+          .eq("is_active", true);
+        if (error) throw error;
+        return data;
+      });
 
       const isEnrolled = enrollments && enrollments.length > 0;
       const courses = courseSubjects

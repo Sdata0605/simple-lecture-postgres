@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 // Physics - Atom with orbiting electrons
 const PhysicsIcon = () => (
@@ -114,96 +113,52 @@ const floatAnimations = [
   'animate-float-particle',
 ];
 
-// Fewer icons than before (was 30) so fewer elements animate at once.
-const GRID_COLS = 4;
-const GRID_ROWS = 3;
-const PARTICLE_COUNT = 8;
-
-// Small seeded generator: layout is computed once and stays identical across re-renders.
-function createSeededRandom(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
-}
-
-export interface PreparationProgress {
-  current: number;
-  total: number;
-}
-
-export interface PreparationAnimationProps {
+interface PreparationAnimationProps {
   className?: string;
-  title?: string;
-  /** Real status line (for example the AI tutor stage). */
-  statusText?: string;
-  /** Secondary line (for example elapsed time). */
-  detailText?: string;
-  /** When total > 0 the bar shows a determinate fill; otherwise it sweeps continuously. */
-  progress?: PreparationProgress | null;
-  onCancel?: () => void;
-  cancelLabel?: string;
 }
 
-const PreparationAnimationBase: React.FC<PreparationAnimationProps> = ({
-  className,
-  title = 'Preparing presentation...',
-  statusText,
-  detailText,
-  progress,
-  onCancel,
-  cancelLabel = 'Cancel',
-}) => {
-  // Computed once per mount. No Math.random during render, so icons and particles do not jump.
-  const icons = useMemo(() => {
-    const rand = createSeededRandom(7);
-    const cellWidth = 100 / GRID_COLS;
-    const cellHeight = 100 / GRID_ROWS;
-    return Array.from({ length: GRID_COLS * GRID_ROWS }, (_, i) => {
+export const PreparationAnimation: React.FC<PreparationAnimationProps> = ({ className }) => {
+  // Generate grid-positioned floating icons
+  const randomIcons = useMemo(() => {
+    const GRID_COLS = 6;
+    const GRID_ROWS = 5;
+    const TOTAL_ICONS = GRID_COLS * GRID_ROWS;
+    
+    return Array(TOTAL_ICONS).fill(null).map((_, i) => {
+      const IconComponent = iconComponents[i % iconComponents.length];
       const col = i % GRID_COLS;
       const row = Math.floor(i / GRID_COLS);
-      const IconComponent = iconComponents[i % iconComponents.length];
+      const cellWidth = 100 / GRID_COLS;
+      const cellHeight = 100 / GRID_ROWS;
+      
+      // Add some randomness to positions within each cell
+      const offsetX = (Math.random() - 0.5) * 8;
+      const offsetY = (Math.random() - 0.5) * 8;
+      
       return {
         id: i,
         Component: IconComponent,
         style: {
           position: 'absolute' as const,
-          top: `${row * cellHeight + cellHeight / 2 + (rand() - 0.5) * 8}%`,
-          left: `${col * cellWidth + cellWidth / 2 + (rand() - 0.5) * 8}%`,
-          transform: `translate(-50%, -50%) rotate(${rand() * 40 - 20}deg)`,
-          opacity: 0.25 + rand() * 0.25,
-          width: `${35 + rand() * 25}px`,
-          height: `${35 + rand() * 25}px`,
-          animationDelay: `${rand() * 3}s`,
-          animationDuration: `${3 + rand() * 4}s`,
+          top: `${row * cellHeight + cellHeight / 2 + offsetY}%`,
+          left: `${col * cellWidth + cellWidth / 2 + offsetX}%`,
+          transform: `translate(-50%, -50%) rotate(${Math.random() * 40 - 20}deg)`,
+          opacity: 0.25 + Math.random() * 0.25,
+          width: `${35 + Math.random() * 25}px`,
+          height: `${35 + Math.random() * 25}px`,
+          animationDelay: `${Math.random() * 3}s`,
+          animationDuration: `${3 + Math.random() * 4}s`,
         },
-        animationClass: floatAnimations[Math.floor(rand() * floatAnimations.length)],
+        animationClass: floatAnimations[Math.floor(Math.random() * floatAnimations.length)]
       };
     });
   }, []);
-
-  const particles = useMemo(() => {
-    const rand = createSeededRandom(19);
-    return Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
-      id: i,
-      top: `${rand() * 100}%`,
-      left: `${rand() * 100}%`,
-      delay: `${rand() * 5}s`,
-      duration: `${6 + rand() * 4}s`,
-    }));
-  }, []);
-
-  const percent =
-    progress && progress.total > 0
-      ? Math.min(100, Math.max(0, Math.round((progress.current / progress.total) * 100)))
-      : null;
 
   return (
     <div className={cn("relative min-h-[400px] w-full h-full flex items-center justify-center overflow-hidden", className)}>
       {/* Floating educational icons */}
       <div className="absolute inset-0 overflow-hidden">
-        {icons.map(({ id, Component, style, animationClass }) => (
+        {randomIcons.map(({ id, Component, style, animationClass }) => (
           <div key={id} className={animationClass} style={style}>
             <Component />
           </div>
@@ -212,70 +167,49 @@ const PreparationAnimationBase: React.FC<PreparationAnimationProps> = ({
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {particles.map((p) => (
+        {Array(15).fill(null).map((_, i) => (
           <div
-            key={`particle-${p.id}`}
+            key={`particle-${i}`}
             className="absolute w-1.5 h-1.5 rounded-full bg-primary/20 animate-float-particle"
-            style={{ top: p.top, left: p.left, animationDelay: p.delay, animationDuration: p.duration }}
+            style={{
+              top: `${Math.random() * 100}%`,
+              left: `${Math.random() * 100}%`,
+              animationDelay: `${Math.random() * 5}s`,
+              animationDuration: `${6 + Math.random() * 4}s`,
+            }}
           />
         ))}
       </div>
 
-      {/* Center content card. No backdrop-blur: blurring over animated layers repaints every frame. */}
-      <div className="relative z-10 flex flex-col items-center text-center px-8 py-8 bg-background/95 rounded-xl border border-border/50 shadow-xl max-w-sm w-[90%]">
+      {/* Center content card */}
+      <div className="relative z-10 flex flex-col items-center text-center px-8 py-8 bg-background/90 backdrop-blur-md rounded-xl border border-border/50 shadow-2xl max-w-sm">
         <h3 className="text-2xl font-bold mb-3 bg-gradient-to-r from-primary via-primary to-pink-500 bg-clip-text text-transparent">
-          {title}
+          Preparing presentation...
         </h3>
-
-        {statusText && (
-          <p className="text-sm font-medium text-foreground mb-3" aria-live="polite">
-            {statusText}
-          </p>
-        )}
-
-        {/* Progress bar: determinate when a real count exists, otherwise one continuous linear sweep. */}
-        <div
-          className="w-full h-2.5 bg-muted/50 rounded-full overflow-hidden mb-4 relative"
-          role="progressbar"
-          aria-label="Preparation progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent ?? undefined}
-        >
-          {percent !== null ? (
-            <div
-              className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary via-primary to-pink-500 transition-[width] duration-500 ease-linear"
-              style={{ width: `${percent}%` }}
-            />
-          ) : (
-            <div
-              className="prep-bar-sweep absolute inset-y-0 left-0 w-2/5 rounded-full bg-gradient-to-r from-primary via-primary to-pink-500"
-              style={{ willChange: 'transform' }}
-            />
-          )}
+        
+        {/* Animated progress bar */}
+        <div className="w-full h-2.5 bg-muted/50 rounded-full overflow-hidden mb-4">
+          <div 
+            className="h-full w-full bg-gradient-to-r from-primary via-primary to-pink-500 rounded-full animate-pulse"
+            style={{
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 2s ease-in-out infinite',
+            }}
+          />
         </div>
-
+        
         <p className="text-sm text-muted-foreground">
-          {detailText ?? 'This may take a few minutes'}
+          This may take a few minutes
         </p>
-
-        {onCancel && (
-          <Button variant="outline" size="sm" className="mt-4" onClick={onCancel}>
-            {cancelLabel}
-          </Button>
-        )}
       </div>
 
-      {/* Linear, seamless sweep. Only transform is animated. */}
+      {/* Add shimmer keyframes */}
       <style>{`
-        @keyframes prep-bar-sweep {
-          from { transform: translateX(-100%); }
-          to { transform: translateX(250%); }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
-        .prep-bar-sweep { animation: prep-bar-sweep 1.6s linear infinite; }
       `}</style>
     </div>
   );
 };
-
-export const PreparationAnimation = React.memo(PreparationAnimationBase);

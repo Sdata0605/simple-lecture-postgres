@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils';
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 import { toast } from 'sonner';
 
 const useTimetableEnrollments = () => useQuery({
@@ -377,13 +378,22 @@ const useSessionEntityTitles = (sessions: any[]) => {
     enabled: sessions.length > 0,
     queryFn: async () => {
       const [subs, chaps, tops] = await Promise.all([
-        subjectIds.length ? supabase.from('popular_subjects').select('id,name').in('id', subjectIds as string[]) : Promise.resolve({ data: [] as any[] }),
-        chapterIds.length ? supabase.from('subject_chapters').select('id,title').in('id', chapterIds as string[]) : Promise.resolve({ data: [] as any[] }),
-        topicIds.length ? supabase.from('subject_topics').select('id,title').in('id', topicIds as string[]) : Promise.resolve({ data: [] as any[] }),
+        inBatches(subjectIds as string[], async (chunk) => {
+          const { data } = await supabase.from('popular_subjects').select('id,name').in('id', chunk);
+          return data as any[];
+        }),
+        inBatches(chapterIds as string[], async (chunk) => {
+          const { data } = await supabase.from('subject_chapters').select('id,title').in('id', chunk);
+          return data as any[];
+        }),
+        inBatches(topicIds as string[], async (chunk) => {
+          const { data } = await supabase.from('subject_topics').select('id,title').in('id', chunk);
+          return data as any[];
+        }),
       ]);
-      const subject = new Map((subs.data || []).map((r: any) => [r.id, r.name]));
-      const chapter = new Map((chaps.data || []).map((r: any) => [r.id, r.title]));
-      const topic = new Map((tops.data || []).map((r: any) => [r.id, r.title]));
+      const subject = new Map((subs || []).map((r: any) => [r.id, r.name]));
+      const chapter = new Map((chaps || []).map((r: any) => [r.id, r.title]));
+      const topic = new Map((tops || []).map((r: any) => [r.id, r.title]));
       return { subject, chapter, topic };
     },
   });
@@ -1465,8 +1475,6 @@ const AutoBuilder = ({ courseId }: { courseId: string }) => {
   const [subjectId, setSubjectId] = useState<string>('');
   const [chapterId, setChapterId] = useState<string>('');
   const [topicId, setTopicId] = useState<string>('');
-  // Same as the mobile app: a single chapter or topic is planned from a collapsed section.
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const { data: chaptersData = [] } = useSubjectChaptersWithTopics(subjectId);
 
   const [startDate, setStartDate] = useState<Date | undefined>(new Date());
@@ -1688,39 +1696,6 @@ const AutoBuilder = ({ courseId }: { courseId: string }) => {
                     </Label>
                   ))}
                 </RadioGroup>
-                {scope === 'chapter' || scope === 'topic' || advancedOpen ? (
-                  <div className="space-y-3 rounded-xl border p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold">Single chapter or topic</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setAdvancedOpen(false);
-                          if (scope === 'chapter' || scope === 'topic') { setScope('course'); setChapterId(''); setTopicId(''); }
-                        }}
-                      >
-                        Back to course or subject
-                      </Button>
-                    </div>
-                    <RadioGroup
-                      value={scope === 'chapter' || scope === 'topic' ? scope : ''}
-                      onValueChange={(v) => { setScope(v as Scope); setChapterId(''); setTopicId(''); }}
-                      className="grid grid-cols-2 gap-2"
-                    >
-                      {(['chapter', 'topic'] as Scope[]).map(s => (
-                        <Label key={s} className={cn('border rounded-xl p-3 cursor-pointer flex items-center gap-2 transition-colors', scope === s && 'border-primary bg-primary/5')}>
-                          <RadioGroupItem value={s} /><span className="capitalize">{s}</span>
-                        </Label>
-                      ))}
-                    </RadioGroup>
-                  </div>
-                ) : (
-                  <Button type="button" variant="link" className="px-0 h-auto" onClick={() => setAdvancedOpen(true)}>
-                    Plan a single chapter or topic instead
-                  </Button>
-                )}
                 {scope !== 'course' && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <Select value={subjectId} onValueChange={(v) => { setSubjectId(v); setChapterId(''); setTopicId(''); }}>

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 import { subDays } from 'date-fns';
 import { useCurrentAuthUser } from './useCurrentAuthUser';
 import { useStudentCourseIds } from './useStudentEnrollments';
@@ -18,13 +19,16 @@ export const useAttendance = () => {
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
 
       // Get scheduled classes for enrolled courses in last 30 days
-      const { data: scheduledClasses } = await supabase
-        .from('scheduled_classes')
-        .select('id, scheduled_at')
-        .in('course_id', courseIds)
-        .gte('scheduled_at', thirtyDaysAgo)
-        .lte('scheduled_at', new Date().toISOString())
-        .eq('is_cancelled', false);
+      const scheduledClasses = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('scheduled_classes')
+          .select('id, scheduled_at')
+          .in('course_id', chunk)
+          .gte('scheduled_at', thirtyDaysAgo)
+          .lte('scheduled_at', new Date().toISOString())
+          .eq('is_cancelled', false);
+        return data;
+      });
 
       const classIds = scheduledClasses?.map(c => c.id) || [];
 
@@ -32,14 +36,16 @@ export const useAttendance = () => {
         return { percentage: 0, present: 0, total: 0, recent: [] };
       }
 
-      // Get attendance records
-      const { data: attendance, error } = await supabase
-        .from('class_attendance')
-        .select('*, scheduled_class:scheduled_classes(scheduled_at, subject)')
-        .eq('student_id', user.id)
-        .in('scheduled_class_id', classIds);
-
-      if (error) throw error;
+      // Get attendance records (class id list chunked)
+      const attendance = await inBatches(classIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('class_attendance')
+          .select('*, scheduled_class:scheduled_classes(scheduled_at, subject)')
+          .eq('student_id', user.id)
+          .in('scheduled_class_id', chunk);
+        if (error) throw error;
+        return data;
+      });
 
       const total = classIds.length;
       const present = attendance?.filter(a => a.status === 'present').length || 0;

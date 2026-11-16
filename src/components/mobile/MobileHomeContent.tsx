@@ -9,19 +9,18 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MobileHomeSearch } from "./MobileHomeSearch";
-import { usePlanState } from "@/lib/aiTeacherKeys";
 import { openAskAI } from "@/lib/askAIStore";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAuth } from "@/contexts/AuthContext";
 import { useHomepageData } from "@/hooks/useHomepageData";
 import { useDailyAttendance } from "@/hooks/useDailyAttendance";
-import { HeroLecturePlayer } from "@/components/HeroLecturePlayer";
+import { LazyHeroLecturePlayer as HeroLecturePlayer } from "@/components/LazyHeroLecturePlayer";
 import { HeroV4Launcher } from "@/components/HeroV4Launcher";
 import { HOMEPAGE_HERO_LECTURE } from "@/lib/homepageHeroLecture";
-import headerIcon from "@/assets/header-icon.jpeg";
+import headerIcon from "@/assets/header-icon.webp";
 
 // Only import first hero image statically - others loaded after first paint
-import heroBoardExams from "@/assets/hero-board-exams.jpg";
+import heroBoardExams from "@/assets/hero-board-exams.webp";
 
 // Lazy-load heavy components
 const HamburgerMenu = lazy(() => import("./HamburgerMenu").then(m => ({ default: m.HamburgerMenu })));
@@ -38,13 +37,13 @@ const heroSlideData = [
     title: "SSLC Board Exam Prep",
     subtitle: "Score 90+ in Your 10th Board Exams",
     points: ["All subjects covered", "AI doubt clearing 24/7", "Unlimited practice tests"],
-    cta: "Start Learning - ₹1000 + GST",
+    cta: "Start Learning - ₹2,950 incl. GST",
   },
   {
     title: "10th Board Made Easy",
     subtitle: "Complete SSLC Course with AI Tutoring",
     points: ["Chapter-wise video lessons", "Previous year papers solved", "Personalized weak area focus"],
-    cta: "Join Now - ₹1000 + GST",
+    cta: "Join Now - ₹2,950 incl. GST",
   },
   {
     title: "Ace Your SSLC Exams",
@@ -74,13 +73,8 @@ export const MobileHomeContent = () => {
   const navigate = useNavigate();
   
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { state: planState } = usePlanState();
-  // Only a confirmed non-subscriber is sent to the purchase page. Loading and unknown open the overlay,
-  // which shows the plan check or the retry message.
-  const onAITeacherClick = () => {
-    if (planState === "inactive") navigate("/aiteacher/plus");
-    else openAskAI();
-  };
+  // Everyone opens the AI Teacher overlay. It shows the enrollment or key step as needed.
+  const onAITeacherClick = () => openAskAI();
   const heroImages = [heroBoardExams, heroBoardExams, heroBoardExams];
   
   const { data: user, isLoading: userLoading } = useCurrentUser();
@@ -148,7 +142,7 @@ export const MobileHomeContent = () => {
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-white/30 shadow-md flex-shrink-0">
             <img
               src={headerIcon} 
-              alt="Header Icon" 
+              alt="Header Icon" width={48} height={48} 
               className="w-full h-full object-cover"
               loading="lazy"
             />
@@ -159,7 +153,7 @@ export const MobileHomeContent = () => {
       </div>
 
       {/* Hero Section - Fixed dimensions for CLS */}
-      <div className="relative overflow-hidden" style={{ height: '280px' }}>
+      <div className="relative overflow-hidden h-[280px]">
         {heroSlides.map((slide, index) => {
           const isActive = currentSlide === index;
           const isFirst = index === 0;
@@ -219,7 +213,7 @@ export const MobileHomeContent = () => {
                   onClick={onAITeacherClick}
                 >
                   <Sparkles className="w-3.5 h-3.5 mr-1 text-slate-950" />
-                  {planState === "inactive" ? "Purchase AI Teacher" : "Open your AI Teacher"}
+                  "Open your AI Teacher"
                 </Button>
               </div>
             </div>
@@ -270,7 +264,7 @@ export const MobileHomeContent = () => {
 
       {/* Course Sections - Lazy loaded */}
       <Suspense fallback={<div className="min-h-[420px] animate-pulse bg-muted/40 rounded-xl mx-4 mt-4" />}>
-        <div style={{ minHeight: 420 }}>
+        <div className="min-h-[420px]">
           <MobileCourseSections 
             mostPopularCourses={mostPopularCourses as any} 
             newestCourses={newestCourses as any} 

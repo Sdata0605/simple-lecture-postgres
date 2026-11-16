@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -580,21 +580,17 @@ export const AssignmentViewer = ({ topicId, chapterId, subjectId, onOpenInAITab 
   // No assignments
   if (testState === "assignments" && assignments.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto">
-      <Card className="border-0 shadow-lg rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50">
-        <CardContent className="flex flex-col items-center text-center gap-3 py-10 px-6">
-          <div className="mx-auto w-fit rounded-full p-3 bg-green-100 dark:bg-green-900/50">
-            <FileText className="h-8 w-8 text-green-600 dark:text-green-400" />
-          </div>
-          <p className="text-2xl font-semibold">No Assignments Available</p>
-          <p className="text-sm text-muted-foreground max-w-sm">
+      <Card>
+        <CardContent className="py-12 text-center">
+          <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-lg font-medium">No Assignments Available</p>
+          <p className="text-sm text-muted-foreground mb-4">
             Create a practice assignment from the question bank to start practicing.
           </p>
           <Button
-            size="lg"
             onClick={handleCreatePracticeAssignment}
             disabled={isCreating}
-            className="mt-2 w-full sm:w-auto px-8 rounded-xl bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isCreating ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -605,7 +601,6 @@ export const AssignmentViewer = ({ topicId, chapterId, subjectId, onOpenInAITab 
           </Button>
         </CardContent>
       </Card>
-      </div>
     );
   }
 
@@ -714,53 +709,47 @@ export const AssignmentViewer = ({ topicId, chapterId, subjectId, onOpenInAITab 
     
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <Card className="border-0 shadow-lg rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50">
-          <div className="flex items-center justify-between px-6 pt-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="-ml-2 text-muted-foreground"
-              onClick={() => {
-                setTestState("assignments");
-                setSelectedAssignmentId(null);
-              }}
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Assignments
-            </Button>
-          </div>
+        <Button variant="ghost" onClick={() => {
+          setTestState("assignments");
+          setSelectedAssignmentId(null);
+        }}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Assignments
+        </Button>
+
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/50 dark:to-emerald-950/50">
           <CardHeader className="text-center pb-2">
-            <div className="mx-auto w-fit mb-3 rounded-full p-3 bg-green-100 dark:bg-green-900/50">
-              <BookOpen className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="mx-auto p-4 rounded-full bg-green-100 dark:bg-green-900/50 w-fit mb-3">
+              <BookOpen className="h-10 w-10 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle className="text-2xl">{selectedAssignment?.title}</CardTitle>
             {selectedAssignment?.description && (
-              <CardDescription className="mt-2">{selectedAssignment.description}</CardDescription>
+              <p className="text-sm text-muted-foreground mt-2">{selectedAssignment.description}</p>
             )}
           </CardHeader>
           <CardContent className="space-y-5 pb-6">
-            {/* Assignment info grid: three or four equal tiles across the full card width */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Assignment info grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {assignmentDetails && (
-                <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5 min-w-0">
+                <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5">
                   <FileText className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
                   <div className="text-lg font-bold">{assignmentDetails.questions.length}</div>
                   <p className="text-xs text-muted-foreground">Questions</p>
                 </div>
               )}
-              <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5 min-w-0">
+              <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5">
                 <Target className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
                 <div className="text-lg font-bold">{assignmentDetails?.total_marks || selectedAssignment?.total_marks || 0}</div>
                 <p className="text-xs text-muted-foreground">Total Marks</p>
               </div>
-              {!!selectedAssignment?.duration_minutes && (
-                <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5 min-w-0">
+              {selectedAssignment?.duration_minutes && (
+                <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5">
                   <Timer className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
                   <div className="text-lg font-bold">{selectedAssignment.duration_minutes}</div>
                   <p className="text-xs text-muted-foreground">Minutes</p>
                 </div>
               )}
-              <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5 min-w-0">
+              <div className="text-center p-3 rounded-xl bg-white/60 dark:bg-white/5">
                 <Trophy className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
                 <div className="text-lg font-bold">{assignmentDetails?.passing_marks || selectedAssignment?.passing_marks || 0}%</div>
                 <p className="text-xs text-muted-foreground">Passing</p>
@@ -769,17 +758,17 @@ export const AssignmentViewer = ({ topicId, chapterId, subjectId, onOpenInAITab 
 
             {/* Instructions */}
             {assignmentDetails?.instructions && (
-              <div className="p-3 rounded-xl bg-white/60 dark:bg-white/5 text-sm">
+              <div className="p-3 rounded-lg bg-white/60 dark:bg-white/5 text-sm">
                 <p className="font-medium mb-1">Instructions:</p>
                 <p className="text-muted-foreground">{assignmentDetails.instructions}</p>
               </div>
             )}
 
             {/* Solve button */}
-            <div className="flex sm:justify-end">
+            <div className="flex justify-center pt-2">
               <Button
                 size="lg"
-                className="w-full sm:w-auto h-12 px-8 rounded-xl bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white px-8"
                 onClick={startTest}
                 disabled={questionsLoading}
               >

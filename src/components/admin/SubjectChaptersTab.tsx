@@ -333,8 +333,6 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
     const { extracted_images, ...chapterData } = chapterForm as any;
     const sanitizedForm = {
       ...chapterData,
-      // The list is ordered by sequence_order, so it always follows the chapter number
-      sequence_order: Number(chapterForm.chapter_number),
       video_platform: chapterForm.video_platform || null,
       video_id: chapterForm.video_id || null,
     };
@@ -394,7 +392,6 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
     // Sanitize video fields - convert empty strings to null
     const sanitizedForm = {
       ...chapterForm,
-      sequence_order: Number(chapterForm.chapter_number),
       video_platform: chapterForm.video_platform || null,
       video_id: chapterForm.video_id || null,
     };
@@ -461,8 +458,6 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
     // Sanitize video fields - convert empty strings to null
     const sanitizedTopicForm = {
       ...topicForm,
-      // Topics are ordered by sequence_order, so it follows the topic number (e.g. "1", "2", "1.1")
-      sequence_order: parseFloat(String(topicForm.topic_number)) || 0,
       video_platform: topicForm.video_platform || null,
       video_id: topicForm.video_id || null,
     };
@@ -524,7 +519,6 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
     // Sanitize video fields - convert empty strings to null
     const sanitizedTopicForm = {
       ...topicForm,
-      sequence_order: parseFloat(String(topicForm.topic_number)) || 0,
       video_platform: topicForm.video_platform || null,
       video_id: topicForm.video_id || null,
     };
@@ -1082,18 +1076,7 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
                 }}
               >
                 <DialogTrigger asChild>
-                  <Button
-                    onClick={() => {
-                      // Open with the next free chapter number so the field never needs manual editing
-                      const nextNumber = Math.max(0, ...(chapters || []).map((c) => Number(c.chapter_number) || 0)) + 1;
-                      setChapterForm((prev) => ({
-                        ...prev,
-                        chapter_number: nextNumber,
-                        sequence_order: nextNumber,
-                      }));
-                      setIsAddChapterOpen(true);
-                    }}
-                  >
+                  <Button onClick={() => setIsAddChapterOpen(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add Chapter
                   </Button>
@@ -1114,17 +1097,13 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
                         <Input
                           id="chapter-number"
                           type="number"
-                          onFocus={(e) => e.currentTarget.select()}
                           value={chapterForm.chapter_number}
-                          onChange={(e) => {
-                            const num = parseInt(e.target.value) || 1;
-                            // The list is ordered by sequence_order, so keep it in step with the chapter number
+                          onChange={(e) =>
                             setChapterForm({
                               ...chapterForm,
-                              chapter_number: num,
-                              sequence_order: num,
-                            });
-                          }}
+                              chapter_number: parseInt(e.target.value) || 1,
+                            })
+                          }
                         />
                       </div>
                       <div className="space-y-2">
@@ -1373,7 +1352,6 @@ export function SubjectChaptersTab({ subjectId, subjectName, categoryId, categor
                 <Input
                   id="topic-duration"
                   type="number"
-                  onFocus={(e) => e.currentTarget.select()}
                   value={topicForm.estimated_duration_minutes}
                   onChange={(e) =>
                     setTopicForm({

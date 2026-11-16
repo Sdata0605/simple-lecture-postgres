@@ -69,7 +69,6 @@ export const ImageUploadWidget = ({
             className="w-full h-48 object-cover rounded-md"
           />
           <Button
-            type="button"
             variant="destructive"
             size="icon"
             className="absolute top-2 right-2"

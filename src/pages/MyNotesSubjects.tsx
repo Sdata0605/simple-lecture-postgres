@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -33,15 +34,17 @@ const useSubjectNoteCounts = (
     queryFn: async () => {
       if (!subjectIds?.length || !studentId) return {};
 
-      const { data, error } = await supabase
-        .from('student_lecture_notes')
-        .select('subject_id')
-        .eq('student_id', studentId)
-        .in('subject_id', subjectIds);
+      const subjectRows = await inBatches(subjectIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('student_lecture_notes')
+          .select('subject_id')
+          .eq('student_id', studentId)
+          .in('subject_id', chunk);
+        if (error) throw error;
+        return data;
+      });
 
-      if (error) throw error;
-
-      return (data || []).reduce<Record<string, number>>((counts, row) => {
+      return (subjectRows || []).reduce<Record<string, number>>((counts, row) => {
         counts[row.subject_id] = (counts[row.subject_id] || 0) + 1;
         return counts;
       }, {});

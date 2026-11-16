@@ -13,13 +13,11 @@ import { useQuery } from '@tanstack/react-query';
 import CreatePostDialog from '@/components/forum/CreatePostDialog';
 import CreateGroupDialog from '@/components/forum/CreateGroupDialog';
 import { BottomNav } from '@/components/mobile/BottomNav';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const Forum = () => {
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const { data: categories, isLoading: categoriesLoading } = useForumCategories();
   const { data: groups, isLoading: groupsLoading } = useForumGroups();
   const { data: user } = useQuery({
@@ -39,17 +37,16 @@ const Forum = () => {
   const subjectCategories = categories?.filter(c => !c.is_general) || [];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {!isMobile && <DashboardHeader />}
+    <div className="min-h-screen bg-background pb-20 md:pb-0 flex flex-col">
+      <Header />
       <SEOHead
         title="Community Forum"
         description="Join the SimpleLecture student community forum. Ask questions, share knowledge, get AI-assisted answers, and connect with peers across subjects."
         keywords="student forum, discussion board, ask questions, peer learning, SimpleLecture community"
         canonicalUrl="https://simplelecture.com/forum"
       />
-      <main className="flex-1 bg-muted/30">
-        <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl pb-24 md:pb-12">
-        <Link to="/"className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
+        <div className="container mx-auto px-4 py-4 md:py-8">
+        <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Home
         </Link>
         {/* Header */}
@@ -199,7 +196,7 @@ const Forum = () => {
                 ))}
               </div>
             ) : groups?.length === 0 ? (
-              <Card className="text-center py-12 rounded-xl border-0 shadow-lg">
+              <Card className="text-center py-12">
                 <CardContent>
                   <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="font-semibold mb-2">No groups yet</h3>
@@ -305,18 +302,19 @@ const Forum = () => {
           </TabsContent>
         </Tabs>
       </div>
-      </main>
+
+      <Footer />
 
       <CreatePostDialog 
         open={createPostOpen} 
         onOpenChange={setCreatePostOpen}
         categories={categories || []}
       />
+      <BottomNav />
       <CreateGroupDialog 
         open={createGroupOpen} 
         onOpenChange={setCreateGroupOpen}
       />
-      {isMobile ? <BottomNav /> : <Footer />}
     </div>
   );
 };

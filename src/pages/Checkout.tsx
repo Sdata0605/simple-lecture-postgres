@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { SUPABASE_URL } from '@/lib/supabaseUrl';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,8 @@ import { Footer } from '@/components/Footer';
 import { BottomNav } from '@/components/mobile/BottomNav';
 import { useCart } from '@/hooks/useCart';
 import { formatINR } from '@/lib/utils';
+import { splitInclusiveGST } from '@/lib/gst';
+import { trackEvent } from '@/lib/analytics';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -29,7 +32,9 @@ const Checkout = () => {
 
   const discount = location.state?.discount || 0;
   const promoCode = location.state?.promoCode || null;
+  // GST-inclusive final amount; base and GST are derived from it for display.
   const finalAmount = total - discount;
+  const { base: finalBase, gst: finalGst } = splitInclusiveGST(finalAmount);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -106,9 +111,13 @@ const Checkout = () => {
         await ensureRazorpay();
       }
       if (orderData.razorpayOrderId && orderData.razorpayKeyId && window.Razorpay) {
+        // Charge the server-computed amount so the Razorpay order and checkout match
+        const payAmount = typeof orderData?.amount === 'number' ? orderData.amount : finalAmount;
+        // Set once the handler or payment.failed takes over, so ondismiss doesn't double-report.
+        let paymentHandled = false;
         const options = {
           key: orderData.razorpayKeyId,
-          amount: finalAmount * 100,
+          amount: payAmount * 100,
           currency: 'INR',
           name: 'SimpleLecture',
           description: `Payment for ${items.length} course(s)`,
@@ -121,52 +130,49 @@ const Checkout = () => {
           theme: {
             color: '#6366f1'
           },
-          callback_url: `${window.location.origin}/payment-callback`,
+          // Bank/card pages return the result to our server endpoint, which verifies the
+          // payment, enrolls the student and redirects back to the app's result page.
+          callback_url: `${SUPABASE_URL}/functions/v1/razorpay-callback?return=${encodeURIComponent(window.location.origin)}`,
           handler: async (response: any) => {
             console.log('Razorpay payment response:', response);
-            
-            // Verify payment
-            const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
-              'verify-payment',
-              {
-                body: {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                  orderId: orderData.orderId,
-                  userId: user.id,
-                  courses: items.map((item) => ({
-                    id: item.course_id,
-                    price: item.course_price
-                  }))
+            paymentHandled = true;
+            const failedUrl = `/payment-failed?orderId=${encodeURIComponent(orderData.orderId)}`;
+
+            try {
+              // Verify payment
+              const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+                'verify-payment',
+                {
+                  body: {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    orderId: orderData.orderId,
+                  }
                 }
+              );
+
+              if (verifyError || !verifyData?.verified) {
+                // The failed page re-checks the order row and shows "confirming" if still pending.
+                setProcessing(false);
+                navigate(failedUrl, { state: { orderId: orderData.orderId } });
+                return;
               }
-            );
 
-            if (verifyError || !verifyData?.verified) {
-              toast({
-                title: 'Payment Verification Failed',
-                description: 'Please contact support if amount was deducted',
-                variant: 'destructive',
+              await clearCart();
+              // The success page shows the receipt only after reading the 'success' row itself.
+              navigate(`/payment-success?orderId=${encodeURIComponent(orderData.orderId)}`, {
+                state: { orderId: orderData.orderId },
               });
-              navigate('/payment-failed');
-              return;
+            } catch (err) {
+              console.error('Payment verification error:', err);
+              setProcessing(false);
+              navigate(failedUrl, { state: { orderId: orderData.orderId } });
             }
-
-            await clearCart();
-            navigate('/payment-success', {
-              state: {
-                orderId: orderData.orderId,
-                amount: finalAmount,
-                courses: items.map(item => ({
-                  id: item.course_id,
-                  course_name: item.course_name
-                })),
-              },
-            });
           },
           modal: {
             ondismiss: () => {
+              if (paymentHandled) return;
               setProcessing(false);
               toast({
                 title: 'Payment Cancelled',
@@ -179,53 +185,46 @@ const Checkout = () => {
         const razorpay = new window.Razorpay(options);
         razorpay.on('payment.failed', (response: any) => {
           console.error('Payment failed:', response.error);
-          toast({
-            title: 'Payment Failed',
-            description: response.error.description || 'Payment could not be processed',
-            variant: 'destructive',
-          });
+          paymentHandled = true;
+          const reason = response?.error?.description || 'Payment could not be processed';
           setProcessing(false);
+          try { razorpay.close(); } catch { /* modal may already be closed */ }
+          navigate(`/payment-failed?orderId=${encodeURIComponent(orderData.orderId)}`, {
+            state: { orderId: orderData.orderId, reason },
+          });
+        });
+        // Cart items carry no slug, so the course id is used as the item / content id here.
+        trackEvent({
+          ga4: 'begin_checkout',
+          meta: 'InitiateCheckout',
+          params: {
+            currency: 'INR',
+            value: finalAmount,
+            items: items.map((item) => ({
+              item_id: item.course_id,
+              item_name: item.course_name,
+              price: item.course_price,
+            })),
+          },
+          metaParams: {
+            content_ids: items.map((item) => item.course_id),
+            content_name: items.map((item) => item.course_name).join(', '),
+            content_type: 'product',
+            value: finalAmount,
+            currency: 'INR',
+            num_items: items.length,
+          },
         });
         razorpay.open();
       } else {
-        // Fallback: demo mode without Razorpay
-        console.log('Running in demo mode - no Razorpay configured');
-        
-        // Create enrollments directly for demo
-        const { error: verifyError } = await supabase.functions.invoke(
-          'verify-payment',
-          {
-            body: {
-              razorpay_order_id: 'demo_order',
-              razorpay_payment_id: 'demo_payment',
-              razorpay_signature: 'demo_signature',
-              orderId: orderData.orderId,
-              userId: user.id,
-              courses: items.map((item) => ({
-                id: item.course_id,
-                price: item.course_price
-              }))
-            }
-          }
-        );
-
-        // Update payment status to success for demo
-        await supabase
-          .from('payments')
-          .update({ status: 'success', completed_at: new Date().toISOString() })
-          .eq('order_id', orderData.orderId);
-
-        await clearCart();
-        navigate('/payment-success', {
-          state: {
-            orderId: orderData.orderId,
-            amount: finalAmount,
-            courses: items.map(item => ({
-              id: item.course_id,
-              course_name: item.course_name
-            })),
-          },
+        // Razorpay is not available. Never mark an order as paid from the browser.
+        console.error('Razorpay not available; order left pending', orderData.orderId);
+        toast({
+          title: 'Payment gateway unavailable',
+          description: 'Please try again later or contact support.',
+          variant: 'destructive',
         });
+        setProcessing(false);
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
@@ -338,7 +337,7 @@ const Checkout = () => {
                   <Separator />
 
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-muted-foreground">Subtotal (incl. GST)</span>
                     <span className="font-semibold">{formatINR(total)}</span>
                   </div>
 
@@ -348,6 +347,18 @@ const Checkout = () => {
                       <span>-{formatINR(discount)}</span>
                     </div>
                   )}
+
+                  <Separator />
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Base (before GST)</span>
+                    <span>{formatINR(finalBase)}</span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">GST (18%)</span>
+                    <span>{formatINR(finalGst)}</span>
+                  </div>
 
                   <Separator />
 

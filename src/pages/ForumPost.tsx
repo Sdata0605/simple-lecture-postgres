@@ -15,13 +15,11 @@ import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import FlagContentDialog from '@/components/forum/FlagContentDialog';
 import { BottomNav } from '@/components/mobile/BottomNav';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const ForumPost = () => {
   const { id } = useParams<{ id: string }>();
-  const isMobile = useIsMobile();
   const { data: post, isLoading: postLoading } = useForumPost(id || '');
   const { data: replies, isLoading: repliesLoading } = useForumReplies(id || '');
   const { data: user } = useQuery({
@@ -54,32 +52,27 @@ const ForumPost = () => {
 
   if (postLoading) {
     return (
-      <div className="min-h-screen flex flex-col">
-        {!isMobile && <DashboardHeader />}
-        <main className="flex-1 bg-muted/30">
-          <div className="container mx-auto px-4 py-6 md:py-8 max-w-4xl pb-24 md:pb-12">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 bg-muted rounded w-1/4" />
-              <div className="h-6 bg-muted rounded w-3/4" />
-              <div className="h-32 bg-muted rounded" />
-            </div>
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-muted rounded w-1/4" />
+            <div className="h-6 bg-muted rounded w-3/4" />
+            <div className="h-32 bg-muted rounded" />
           </div>
-        </main>
-        {isMobile ? <BottomNav /> : <Footer />}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {!isMobile && <DashboardHeader />}
+    <div className="min-h-screen pb-20 md:pb-0 bg-background flex flex-col">
+      <Header />
       <SEOHead
         title={post?.title || 'Forum Post'}
         description={post?.content ? post.content.substring(0, 155) + '...' : 'View this discussion on SimpleLecture forum.'}
         keywords="forum post, student discussion, SimpleLecture"
       />
-      <main className="flex-1 bg-muted/30">
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-4xl pb-24 md:pb-12">
+      <div className="container mx-auto px-4 py-4 md:py-8 max-w-4xl">
         {/* Back Links */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <Link to="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
@@ -165,7 +158,7 @@ const ForumPost = () => {
               ))}
             </div>
           ) : replies?.length === 0 ? (
-            <Card className="text-center py-8 rounded-xl border-0 shadow-lg">
+            <Card className="text-center py-8">
               <CardContent>
                 <MessageSquare className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
                 <p className="text-muted-foreground">No replies yet. Be the first to answer!</p>
@@ -296,14 +289,15 @@ const ForumPost = () => {
           )}
         </div>
       </div>
-      </main>
+
+      <Footer />
 
       <FlagContentDialog
         open={flagDialogOpen}
         onOpenChange={setFlagDialogOpen}
         target={flagTarget}
       />
-      {isMobile ? <BottomNav /> : <Footer />}
+      <BottomNav />
     </div>
   );
 };

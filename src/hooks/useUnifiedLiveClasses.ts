@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 import { useStudentCourseIds } from "./useStudentEnrollments";
 import { startOfDay, endOfDay, addDays, isWithinInterval } from "date-fns";
 
@@ -61,55 +62,72 @@ export function useUnifiedLiveClasses() {
       const todayStart = startOfDay(now);
       const weekEnd = endOfDay(addDays(now, 7));
 
-      // Fetch scheduled_classes (one-time classes)
-      const { data: scheduledClasses, error: scheduledError } = await supabase
-        .from('scheduled_classes')
-        .select(`
-          id,
-          subject,
-          scheduled_at,
-          duration_minutes,
-          meeting_link,
-          is_cancelled,
-          is_live,
-          course_id,
-          subject_id,
-          chapter_id,
-          topic_id,
-          courses(id, name),
-          popular_subjects(id, name),
-          subject_chapters(id, title),
-          subject_topics(id, title),
-          teacher_profiles(id, full_name, avatar_url)
-        `)
-        .in('course_id', courseIds)
-        .eq('is_cancelled', false)
-        .gte('scheduled_at', todayStart.toISOString())
-        .lte('scheduled_at', weekEnd.toISOString())
-        .order('scheduled_at', { ascending: true });
+      // Fetch scheduled_classes (one-time classes), batched by course id
+      let scheduledError: any = null;
+      const scheduledClasses = await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('scheduled_classes')
+          .select(`
+            id,
+            subject,
+            scheduled_at,
+            duration_minutes,
+            meeting_link,
+            is_cancelled,
+            is_live,
+            course_id,
+            subject_id,
+            chapter_id,
+            topic_id,
+            courses(id, name),
+            popular_subjects(id, name),
+            subject_chapters(id, title),
+            subject_topics(id, title),
+            teacher_profiles(id, full_name, avatar_url)
+          `)
+          .in('course_id', chunk)
+          .eq('is_cancelled', false)
+          .gte('scheduled_at', todayStart.toISOString())
+          .lte('scheduled_at', weekEnd.toISOString())
+          .order('scheduled_at', { ascending: true });
+        if (error) {
+          scheduledError = error;
+          return [];
+        }
+        return data;
+      });
+      scheduledClasses.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
       if (scheduledError) {
         console.error('Error fetching scheduled classes:', scheduledError);
       }
 
-      // Fetch course_timetables (recurring classes)
-      const { data: timetableEntries, error: timetableError } = await supabase
-        .from('course_timetables')
-        .select(`
-          id,
-          day_of_week,
-          start_time,
-          end_time,
-          room_number,
-          meeting_link,
-          course_id,
-          subject_id,
-          courses(id, name),
-          popular_subjects(id, name),
-          teacher_profiles(id, full_name, avatar_url)
-        `)
-        .in('course_id', courseIds)
-        .eq('is_active', true);
+      // Fetch course_timetables (recurring classes), batched by course id
+      let timetableError: any = null;
+      const timetableEntries = await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('course_timetables')
+          .select(`
+            id,
+            day_of_week,
+            start_time,
+            end_time,
+            room_number,
+            meeting_link,
+            course_id,
+            subject_id,
+            courses(id, name),
+            popular_subjects(id, name),
+            teacher_profiles(id, full_name, avatar_url)
+          `)
+          .in('course_id', chunk)
+          .eq('is_active', true);
+        if (error) {
+          timetableError = error;
+          return [];
+        }
+        return data;
+      });
 
       if (timetableError) {
         console.error('Error fetching timetable:', timetableError);
@@ -219,31 +237,40 @@ export function useLiveClassFilterOptions(courseIds: string[]) {
         return { courses: [], subjects: [], chapters: [] };
       }
 
-      // Fetch courses
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id, name')
-        .in('id', courseIds)
-        .order('name');
+      // Fetch courses (chunked by id; merged rows re-sorted by name)
+      const courses = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('courses')
+          .select('id, name')
+          .in('id', chunk);
+        return data;
+      });
+      courses.sort((a, b) => String(a.name ?? '').localeCompare(String(b.name ?? '')));
 
       // Fetch subjects for these courses
-      const { data: courseSubjects } = await supabase
-        .from('course_subjects')
-        .select(`
-          course_id,
-          subject_id,
-          popular_subjects(id, name)
-        `)
-        .in('course_id', courseIds);
+      const courseSubjects = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('course_subjects')
+          .select(`
+            course_id,
+            subject_id,
+            popular_subjects(id, name)
+          `)
+          .in('course_id', chunk);
+        return data;
+      });
 
-      // Fetch chapters for these subjects
+      // Fetch chapters for these subjects (chunked; merged rows re-sorted by sequence_order)
       const subjectIds = [...new Set((courseSubjects || []).map(cs => cs.subject_id))];
-      
-      const { data: chapters } = await supabase
-        .from('subject_chapters')
-        .select('id, title, subject_id')
-        .in('subject_id', subjectIds)
-        .order('sequence_order');
+
+      const chapters = await inBatches(subjectIds, async (chunk) => {
+        const { data } = await supabase
+          .from('subject_chapters')
+          .select('id, title, subject_id, sequence_order')
+          .in('subject_id', chunk);
+        return data;
+      });
+      chapters.sort((a, b) => (a.sequence_order ?? 0) - (b.sequence_order ?? 0));
 
       // Build unique subjects list
       const subjectsMap = new Map();

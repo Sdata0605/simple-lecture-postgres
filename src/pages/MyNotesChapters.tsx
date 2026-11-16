@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -238,9 +239,10 @@ const MyNotesChapters = () => {
         const topicIds = topicNotes
           .map((note) => note.topic_id)
           .filter((id): id is string => !!id);
-        const { data: topics } = topicIds.length
-          ? await supabase.from('subject_topics').select('id, title').in('id', topicIds)
-          : { data: [] as any[] };
+        const topics = await inBatches(topicIds, async (chunk) => {
+          const { data } = await supabase.from('subject_topics').select('id, title').in('id', chunk);
+          return data;
+        });
 
         const topicMap = new Map<string, string>();
         (topics || []).forEach((topic) => topicMap.set(topic.id, topic.title));

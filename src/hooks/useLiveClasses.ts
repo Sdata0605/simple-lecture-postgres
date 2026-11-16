@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 
 export const useLiveClasses = () => {
   const { data: liveClasses, isLoading } = useQuery({
@@ -22,15 +23,19 @@ export const useLiveClasses = () => {
       const now = new Date();
 
       // Fetch classes that are marked as live OR currently happening based on time
-      const { data } = await supabase
-        .from('scheduled_classes')
-        .select(`
-          *,
-          teacher:teacher_profiles(full_name, avatar_url)
-        `)
-        .in('course_id', courseIds)
-        .eq('is_cancelled', false)
-        .order('scheduled_at', { ascending: true });
+      const data = await inBatches(courseIds, async (chunk) => {
+        const { data: chunkData } = await supabase
+          .from('scheduled_classes')
+          .select(`
+            *,
+            teacher:teacher_profiles(full_name, avatar_url)
+          `)
+          .in('course_id', chunk)
+          .eq('is_cancelled', false)
+          .order('scheduled_at', { ascending: true });
+        return chunkData;
+      });
+      data.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
       // Filter for live classes (either marked as live or within time range)
       const live = data?.filter(c => {

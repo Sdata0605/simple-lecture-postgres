@@ -21,12 +21,14 @@ import { V4Notes } from "./v4/V4Notes";
 
 import { extractJobIdFromUrl } from "./player/utils/mediaResolver";
 import { useLanguageTopupStatus } from "@/hooks/useLanguageTopup";
+import { SHOW_LANGUAGE_TOPUP_BUTTONS } from "@/lib/languageTopupConfig";
 import { useAvailableLanguages, getLanguageInfo } from "@/hooks/useAvailableLanguages";
 import { usePublishedAILectures, useAILectureDetails, PublishedAILecture } from "@/hooks/usePublishedAILectures";
 import { useMarkVideoWatched, useUpdateVideoWatchTime } from "@/hooks/useMarkVideoWatched";
 import type { PresentationReview } from "@/hooks/useVideoGenerationJobs";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 
 import type { QuickActionItem } from './player/EducationalVideoPlayerDialog';
 
@@ -355,22 +357,31 @@ export const RecordedVideos = ({
 
       if (jobs.length === 0) return ids;
 
-      let query = supabase
-        .from('student_lecture_notes')
-        .select('job_id')
-        .eq('student_id', user!.id);
+      // Fresh builder per chunk (PostgREST builders accumulate filters when reused)
+      const buildQuery = () => {
+        let query = supabase
+          .from('student_lecture_notes')
+          .select('job_id')
+          .eq('student_id', user!.id);
 
-      query = subjectId ? query.eq('subject_id', subjectId) : query.is('subject_id', null);
-      query = chapterId ? query.eq('chapter_id', chapterId) : query.is('chapter_id', null);
-      query = query.eq('topic_id', topicId);
-      query = query.in('job_id', jobs);
+        query = subjectId ? query.eq('subject_id', subjectId) : query.is('subject_id', null);
+        query = chapterId ? query.eq('chapter_id', chapterId) : query.is('chapter_id', null);
+        query = query.eq('topic_id', topicId);
+        return query;
+      };
 
-      const { data, error } = await query;
-      if (error) {
-        console.error('[RecordedVideos] notes-existence lookup failed', error);
-        return ids;
-      }
-      for (const row of data || []) {
+      let lookupFailed = false;
+      const rows = await inBatches(jobs, async (chunk) => {
+        const { data, error } = await buildQuery().in('job_id', chunk);
+        if (error) {
+          console.error('[RecordedVideos] notes-existence lookup failed', error);
+          lookupFailed = true;
+          return [];
+        }
+        return data;
+      });
+      if (lookupFailed) return ids;
+      for (const row of rows) {
         if (row.job_id) ids.add(row.job_id);
       }
       return ids;
@@ -783,6 +794,7 @@ export const RecordedVideos = ({
             <div className="space-y-4 p-4 pt-2">
               <div className="aspect-video rounded-lg overflow-hidden bg-black">
                 <iframe
+                  title="Recorded lecture video"
                   src={getEmbedUrl(selectedVideo)}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
@@ -1033,8 +1045,8 @@ const AILectureCard = ({
             </div>
           )}
 
-          {/* Unlock More Languages Button — never shown in free-preview mode */}
-          {showUnlockButton && !isPreviewMode && (
+          {/* Unlock More Languages Button — never shown in free-preview mode. Hidden via SHOW_LANGUAGE_TOPUP_BUTTONS. */}
+          {SHOW_LANGUAGE_TOPUP_BUTTONS && showUnlockButton && !isPreviewMode && (
             <Button
               size="sm"
               onClick={(e) => {
@@ -1228,7 +1240,7 @@ const LegacyAILectureCard = ({
             </div>
           )}
 
-          {showUnlockButton && !isPreviewMode && (
+          {SHOW_LANGUAGE_TOPUP_BUTTONS && showUnlockButton && !isPreviewMode && (
 
             <Button
               size="sm"
@@ -1294,6 +1306,7 @@ const LegacyAILectureCard = ({
             <div className="flex flex-col gap-4 p-4 pt-2 overflow-y-auto">
               <div className="h-[60vh] max-h-[600px] rounded-lg overflow-hidden bg-black flex-shrink-0">
                 <iframe
+                  title="AI-generated lecture video"
                   src={aiGeneratedVideoUrl}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"

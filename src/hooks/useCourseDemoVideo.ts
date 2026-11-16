@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 import { toast } from "sonner";
 
 export interface CourseDemoVideo {
@@ -39,11 +40,14 @@ export const useDemoVideosByExternalJobIds = (externalJobIds: string[]) => {
     queryKey: ["course-demos-by-external", [...externalJobIds].sort()],
     queryFn: async () => {
       if (externalJobIds.length === 0) return [] as CourseDemoVideo[];
-      const { data, error } = await supabase
-        .from("course_demo_videos")
-        .select("*")
-        .in("external_job_id", externalJobIds);
-      if (error) throw error;
+      const data = await inBatches(externalJobIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from("course_demo_videos")
+          .select("*")
+          .in("external_job_id", chunk);
+        if (error) throw error;
+        return data;
+      });
       return (data || []) as CourseDemoVideo[];
     },
     enabled: externalJobIds.length > 0,

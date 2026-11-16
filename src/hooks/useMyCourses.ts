@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -50,31 +51,38 @@ export const useMyCourses = () => {
       const courseIds = enrollments.map(e => e.course_id).filter(Boolean);
       
       // Bulk fetch all chapters and teachers in parallel
-      const [chaptersResult, teachersResult] = await Promise.all([
-        supabase
-          .from('chapters')
-          .select('id, title, subject, course_id')
-          .in('course_id', courseIds),
-        supabase
-          .from('course_teachers')
-          .select('course_id, subject, teacher_profiles(full_name, avatar_url)')
-          .in('course_id', courseIds)
+      const [chaptersRows, teacherRows] = await Promise.all([
+        inBatches(courseIds, async (chunk) => {
+          const { data } = await supabase
+            .from('chapters')
+            .select('id, title, subject, course_id')
+            .in('course_id', chunk);
+          return data;
+        }),
+        inBatches(courseIds, async (chunk) => {
+          const { data } = await supabase
+            .from('course_teachers')
+            .select('course_id, subject, teacher_profiles(full_name, avatar_url)')
+            .in('course_id', chunk);
+          return data;
+        }),
       ]);
 
-      const allChapters = chaptersResult.data || [];
-      const allTeachers = teachersResult.data || [];
+      const allChapters = chaptersRows || [];
+      const allTeachers = teacherRows || [];
 
       // Get all chapter IDs for bulk progress fetch
       const allChapterIds = allChapters.map(ch => ch.id);
       
       // Bulk fetch progress for all chapters at once
-      const { data: allProgress } = allChapterIds.length > 0
-        ? await supabase
-            .from('student_progress')
-            .select('chapter_id, is_completed, updated_at')
-            .eq('student_id', user.id)
-            .in('chapter_id', allChapterIds)
-        : { data: [] };
+      const allProgress = await inBatches(allChapterIds, async (chunk) => {
+        const { data } = await supabase
+          .from('student_progress')
+          .select('chapter_id, is_completed, updated_at')
+          .eq('student_id', user.id)
+          .in('chapter_id', chunk);
+        return data;
+      });
 
       // Build lookup maps for O(1) access
       const chaptersByCourseSubject: Record<string, typeof allChapters> = {};

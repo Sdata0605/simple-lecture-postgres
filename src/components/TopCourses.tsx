@@ -34,7 +34,7 @@ export const TopCourses = ({ featuredCoursesData }: TopCoursesProps) => {
     rating: fc.courses?.rating || 4.9,
     students: fc.courses?.student_count || 0,
     duration: `${(fc.courses?.duration_months || 6) * 50} Hours`,
-    price: fc.courses?.price_inr || 1000,
+    price: fc.courses?.price_inr || 2950,
     originalPrice: fc.courses?.original_price_inr || 25000,
     instructor: fc.courses?.instructor_name || "SimpleLecture Team",
     slug: fc.courses?.slug || "",
@@ -75,7 +75,7 @@ export const TopCourses = ({ featuredCoursesData }: TopCoursesProps) => {
             Top <span className="text-primary">Courses</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Most popular courses for Indian students - All at ₹1000 + GST
+            Most popular courses for Indian students - All at ₹2,950 incl. GST
           </p>
         </div>
 

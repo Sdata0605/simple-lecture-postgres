@@ -3,14 +3,13 @@ import { CheckCircle2, ArrowRight, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { HeroVideoSettings } from "@/hooks/useHomepageData";
-import { HeroLecturePlayer } from "@/components/HeroLecturePlayer";
+import { LazyHeroLecturePlayer as HeroLecturePlayer } from "@/components/LazyHeroLecturePlayer";
 import { HeroV4Launcher } from "@/components/HeroV4Launcher";
 import { HOMEPAGE_HERO_LECTURE } from "@/lib/homepageHeroLecture";
-import { usePlanState } from "@/lib/aiTeacherKeys";
 import { openAskAI } from "@/lib/askAIStore";
 
 // Only import first hero image statically - others loaded after first paint
-import heroBoardExams from "@/assets/hero-board-exams.jpg";
+import heroBoardExams from "@/assets/hero-board-exams.webp";
 
 // Hero slide data - images loaded dynamically except first
 const heroSlideData = [
@@ -22,7 +21,7 @@ const heroSlideData = [
       "24/7 AI doubt clearing in Kannada, Hindi & English",
       "Unlimited practice questions & mock tests",
     ],
-    cta: "Start Learning at Just ₹1000 + GST",
+    cta: "Start Learning at Just ₹2,950 incl. GST",
   },
   {
     title: "10th Board Made Easy with AI",
@@ -32,7 +31,7 @@ const heroSlideData = [
       "AI-generated practice papers matching board pattern",
       "Personalized weak area improvement",
     ],
-    cta: "Join 1,00,000+ SSLC Students at ₹1000 + GST",
+    cta: "Join 50,000+ SSLC Students at ₹2,950 incl. GST",
   },
   {
     title: "Ace Your SSLC Exams",
@@ -42,7 +41,7 @@ const heroSlideData = [
       "AI tutor explains concepts until you master them",
       "Previous years' papers & video solutions",
     ],
-    cta: "Begin Your Board Prep – ₹1000 + GST",
+    cta: "Begin Your Board Prep – ₹2,950 incl. GST",
   },
 ];
 
@@ -52,15 +51,10 @@ interface HeroProps {
 
 export const Hero = (_props: HeroProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { state: planState } = usePlanState();
   const heroImages = [heroBoardExams, heroBoardExams, heroBoardExams];
   const navigate = useNavigate();
-  // Only a confirmed non-subscriber is sent to the purchase page. Loading and unknown open the overlay,
-  // which shows the plan check or the retry message.
-  const onAITeacherClick = () => {
-    if (planState === "inactive") navigate("/aiteacher/plus");
-    else openAskAI();
-  };
+  // Everyone opens the AI Teacher overlay. It shows the enrollment or key step as needed.
+  const onAITeacherClick = () => openAskAI();
 
   // Auto-rotate slides - pause when tab is hidden (memory leak fix)
   useEffect(() => {
@@ -142,10 +136,16 @@ export const Hero = (_props: HeroProps) => {
                     <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                   </div>
 
-                  {/* Title */}
-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
-                    {slide.title}
-                  </h1>
+                  {/* Title: only the active slide is an H1 so the page keeps exactly one */}
+                  {currentSlide === index ? (
+                    <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
+                      {slide.title}
+                    </h1>
+                  ) : (
+                    <div className="text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
+                      {slide.title}
+                    </div>
+                  )}
                   
                   {/* Gradient Subtitle */}
                   <p className="text-xl md:text-2xl font-semibold bg-gradient-to-r from-amber-200 via-yellow-100 to-orange-200 bg-clip-text text-transparent">
@@ -171,7 +171,7 @@ export const Hero = (_props: HeroProps) => {
                       onClick={onAITeacherClick}
                     >
                       <Sparkles className="w-5 h-5 text-slate-950 shrink-0" />
-                      <span>{planState === "inactive" ? "Purchase Your Personal AI Teacher" : "Open your AI Teacher"}</span>
+                      <span>Open your AI Teacher</span>
                     </Button>
                     <Button 
                       size="lg" 
@@ -207,7 +207,7 @@ export const Hero = (_props: HeroProps) => {
                   <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3 text-white/70 text-sm">
                     <span className="flex items-center gap-1">⭐ 4.9/5 rating</span>
                     <span className="w-1 h-1 rounded-full bg-white/40" />
-                    <span>1,00,000+ students</span>
+                    <span>50,000+ students</span>
                     <span className="w-1 h-1 rounded-full bg-white/40" />
                     <span>95% success rate</span>
                   </div>

@@ -100,9 +100,8 @@ export const AIImageGenerator = ({ suggestedPrompt = "", onImageGenerated, cours
           )}
         </div>
 
-        <Button
-          type="button"
-          onClick={handleGenerate}
+        <Button 
+          onClick={handleGenerate} 
           disabled={isGenerating || !prompt.trim()}
           className="w-full"
         >
@@ -127,13 +126,12 @@ export const AIImageGenerator = ({ suggestedPrompt = "", onImageGenerated, cours
               className="w-full rounded-lg border"
             />
             <div className="flex gap-2">
-              <Button type="button" onClick={handleUseImage} className="flex-1">
+              <Button onClick={handleUseImage} className="flex-1">
                 <Download className="mr-2 h-4 w-4" />
                 Use This Image
               </Button>
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                variant="outline" 
                 onClick={() => setGeneratedImage(null)}
               >
                 Discard

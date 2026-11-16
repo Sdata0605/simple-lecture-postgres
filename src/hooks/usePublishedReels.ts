@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 import { reelVariantVideoUrl, type ReelVariant } from "@/hooks/useReelJobManifest";
 import { toast } from "sonner";
 
@@ -26,10 +27,13 @@ export interface PublishedReel {
 async function attachVimeo(reels: PublishedReel[]): Promise<PublishedReel[]> {
   if (reels.length === 0) return reels;
   const jobIds = Array.from(new Set(reels.map((r) => r.external_job_id)));
-  const { data: vimeoRows } = await supabase
-    .from("reel_vimeo_urls")
-    .select("external_job_id, reel_index, variant, vimeo_url, vimeo_id")
-    .in("external_job_id", jobIds);
+  const vimeoRows = await inBatches(jobIds, async (chunk) => {
+    const { data } = await supabase
+      .from("reel_vimeo_urls")
+      .select("external_job_id, reel_index, variant, vimeo_url, vimeo_id")
+      .in("external_job_id", chunk);
+    return data;
+  });
   const map = new Map<string, { vimeo_url: string | null; vimeo_id: string | null }>();
   for (const v of vimeoRows || []) {
     map.set(`${v.external_job_id}|${v.reel_index}|${v.variant}`, {
@@ -102,20 +106,35 @@ export function useAllPublishedReels(args: {
         if (subjectIds.length === 0) return [] as PublishedReel[];
       }
 
-      let q = supabase
-        .from("published_reels")
-        .select("*")
-        .eq("is_published", true)
-        .order("created_at", { ascending: false })
-        .limit(200);
+      // Builds a fresh query each time so the chunked subject lookups don't stack filters
+      const buildQuery = () => {
+        let q = supabase
+          .from("published_reels")
+          .select("*")
+          .eq("is_published", true)
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (chapterId) q = q.eq("chapter_id", chapterId);
+        if (subjectId) q = q.eq("subject_id", subjectId);
+        return q;
+      };
 
-      if (chapterId) q = q.eq("chapter_id", chapterId);
-      if (subjectId) q = q.eq("subject_id", subjectId);
-      else if (subjectIds) q = q.in("subject_id", subjectIds);
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return await attachVimeo((data || []) as PublishedReel[]);
+      let rows: PublishedReel[];
+      if (subjectIds) {
+        // Subject list can be long: chunk it, then re-sort newest-first and keep the first 200
+        const merged = await inBatches(subjectIds, async (chunk) => {
+          const { data, error } = await buildQuery().in("subject_id", chunk);
+          if (error) throw error;
+          return data;
+        });
+        merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        rows = merged.slice(0, 200) as PublishedReel[];
+      } else {
+        const { data, error } = await buildQuery();
+        if (error) throw error;
+        rows = (data || []) as PublishedReel[];
+      }
+      return await attachVimeo(rows);
     },
     staleTime: 1000 * 60 * 2,
   });

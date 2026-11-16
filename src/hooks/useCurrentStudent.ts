@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { inBatches } from "@/lib/batchIn";
 import { format, subDays, eachDayOfInterval, parseISO, startOfDay } from "date-fns";
 
 export interface StudentData {
@@ -219,16 +220,19 @@ export const useCurrentStudent = () => {
       let timetableData: any[] = [];
       
       if (batchIds.length > 0) {
-        const { data: timetable } = await supabase
-          .from('instructor_timetables')
+        const timetable = await inBatches(batchIds, async (chunk) => {
+          const { data } = await supabase
+            .from('instructor_timetables')
           .select(`
             id, day_of_week, start_time, end_time, is_active,
             popular_subjects (id, name),
             subject_chapters (id, title),
             teacher_profiles (id, full_name)
           `)
-          .in('batch_id', batchIds)
-          .eq('is_active', true);
+            .in('batch_id', chunk)
+            .eq('is_active', true);
+          return data;
+        });
         timetableData = timetable || [];
       }
 
@@ -304,14 +308,17 @@ export const useCurrentStudent = () => {
       const courseIds = enrollments?.map((e: any) => e.course_id).filter(Boolean) || [];
       let totalScheduledClasses = 0;
       if (courseIds.length > 0) {
-        const { count } = await supabase
-          .from('scheduled_classes')
-          .select('id', { count: 'exact', head: true })
-          .in('course_id', courseIds)
-          .eq('is_cancelled', false)
-          .lte('scheduled_at', new Date().toISOString());
+        const counts = await inBatches(courseIds, async (chunk) => {
+          const { count } = await supabase
+            .from('scheduled_classes')
+            .select('id', { count: 'exact', head: true })
+            .in('course_id', chunk)
+            .eq('is_cancelled', false)
+            .lte('scheduled_at', new Date().toISOString());
+          return [{ count: count || 0 }];
+        });
         
-        totalScheduledClasses = count || 0;
+        totalScheduledClasses = counts.reduce((sum, r) => sum + r.count, 0);
       }
 
       // Process attendance data with accurate counts

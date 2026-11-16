@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 import { startOfDay, endOfDay, addDays } from 'date-fns';
 
 export type DayFilter = 'today' | 'tomorrow' | 'week';
@@ -39,17 +40,21 @@ export const useTimetable = (dayFilter: DayFilter = 'today') => {
       }
 
       // Fetch scheduled classes
-      const { data } = await supabase
-        .from('scheduled_classes')
-        .select(`
-          *,
-          teacher:teacher_profiles(full_name, avatar_url)
-        `)
-        .in('course_id', courseIds)
-        .gte('scheduled_at', startDate.toISOString())
-        .lte('scheduled_at', endDate.toISOString())
-        .eq('is_cancelled', false)
-        .order('scheduled_at', { ascending: true });
+      const data = await inBatches(courseIds, async (chunk) => {
+        const { data: chunkData } = await supabase
+          .from('scheduled_classes')
+          .select(`
+            *,
+            teacher:teacher_profiles(full_name, avatar_url)
+          `)
+          .in('course_id', chunk)
+          .gte('scheduled_at', startDate.toISOString())
+          .lte('scheduled_at', endDate.toISOString())
+          .eq('is_cancelled', false)
+          .order('scheduled_at', { ascending: true });
+        return chunkData;
+      });
+      data.sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
 
       return data || [];
     },

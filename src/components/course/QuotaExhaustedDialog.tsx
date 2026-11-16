@@ -15,7 +15,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   courseSlug: string;
-  tab: "Visual Tutor" | "Doubts";
+  tab: "AI" | "Doubts";
 }
 
 export function QuotaExhaustedDialog({ open, onOpenChange, courseSlug, tab }: Props) {

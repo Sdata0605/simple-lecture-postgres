@@ -13,7 +13,8 @@ import { StudyPlanThreeDayStrip } from '@/components/dashboard/StudyPlanThreeDay
 import { Footer } from '@/components/Footer';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { useEffect } from 'react';
-import { useEnrollments } from '@/hooks/useEnrollments';
+import { useQuery } from '@tanstack/react-query';
+import { dashboardGet } from '@/lib/dashboardApi';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { MobileLayout } from '@/components/mobile/MobileLayout';
 import { useIsChecker } from '@/hooks/useIsChecker';
@@ -53,8 +54,12 @@ const Dashboard = () => {
   const { isAuthenticated, isLoading } = useAuth();
   const { isChecker, isLoading: checkerLoading } = useIsChecker();
   const isMobile = useIsMobile();
-  const { data: enrollments } = useEnrollments();
-  const isEnrolledInSSLC = enrollments?.some(e => (e as any).course_id === SSLC_COURSE_ID || (e.courses as any)?.id === SSLC_COURSE_ID);
+  const { data: profile } = useQuery({
+    queryKey: ['dashboard-profile-flags'],
+    queryFn: () => dashboardGet<{ enrolled_sslc: boolean }>('profile'),
+    staleTime: 5 * 60 * 1000,
+  });
+  const isEnrolledInSSLC = !!profile?.enrolled_sslc;
 
 
   // Redirect to auth if not authenticated

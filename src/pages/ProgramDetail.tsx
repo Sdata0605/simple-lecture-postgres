@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState, useMemo } from "react";
+import { lazy, Suspense, useState, useMemo, useEffect } from "react";
+import { courseEventPrefix, onceKey, trackEvent } from "@/lib/analytics";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { goHome } from "@/lib/goHome";
 import { rewriteStorageUrl } from "@/lib/proxyUrl";
@@ -157,6 +158,27 @@ const ProgramDetail = () => {
       ],
     };
   }, [course?.id, course?.slug, course?.course_faqs?.length]);
+
+  // Course page view: once per course per browser session.
+  const courseSlug: string | undefined = course?.slug;
+  const courseName: string | undefined = course?.name;
+  const coursePrice: number = Number(course?.price_inr) || 0;
+  useEffect(() => {
+    if (!courseSlug || !courseName) return;
+    if (!onceKey(`course_view_${courseSlug}`)) return;
+    trackEvent({
+      ga4: `${courseEventPrefix(courseSlug, courseName)}_Page_view`,
+      meta: 'ViewContent',
+      params: { course_id: courseSlug, course_name: courseName, value: coursePrice, currency: 'INR' },
+      metaParams: {
+        content_ids: [courseSlug],
+        content_name: courseName,
+        content_type: 'product',
+        value: coursePrice,
+        currency: 'INR',
+      },
+    });
+  }, [courseSlug, courseName, coursePrice]);
 
   if (isLoading) {
     if (isMobile) {
@@ -485,7 +507,7 @@ const ProgramDetail = () => {
                 )}
                 <div className="flex items-center justify-between py-2">
                   <span className="text-xs text-muted-foreground">Students</span>
-                  <span className="text-xs font-semibold">1,00,000+</span>
+                  <span className="text-xs font-semibold">50,000+</span>
                 </div>
                 {course.rating > 0 && (
                   <div className="flex items-center justify-between py-2">
@@ -513,6 +535,7 @@ const ProgramDetail = () => {
                       ₹{course.original_price_inr.toLocaleString()}
                     </span>
                   )}
+                  <span className="text-xs text-muted-foreground">incl. 18% GST</span>
                 </div>
               ) : (
                 <span className="text-lg font-bold text-green-600">Free</span>
@@ -656,6 +679,7 @@ const ProgramDetail = () => {
                             </Badge>
                           </>
                         )}
+                        <span className="text-xs text-muted-foreground">incl. 18% GST</span>
                       </div>
                     ) : (
                       <span className="text-3xl font-bold text-green-400">Free</span>
@@ -830,6 +854,7 @@ const ProgramDetail = () => {
                         <div className="text-3xl font-bold mb-1">
                           ₹{course.price_inr.toLocaleString()}
                         </div>
+                        <div className="text-xs text-muted-foreground mb-1">incl. 18% GST</div>
                         {course.original_price_inr && course.original_price_inr > course.price_inr && (
                           <div className="text-sm text-muted-foreground">
                             <span className="line-through">₹{course.original_price_inr.toLocaleString()}</span>
@@ -862,9 +887,6 @@ const ProgramDetail = () => {
                           Enroll Now
                         </Link>
                       </Button>
-                      <p className="text-xs text-muted-foreground">
-                        30-day money-back guarantee
-                      </p>
                     </>
                   )}
                 </CardContent>

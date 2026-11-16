@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
@@ -74,10 +75,13 @@ export const SocialProofToast = () => {
         // Guard: Supabase .in() throws on an empty array
         const nameMap = new Map<string, string>();
         if (studentIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('public_profiles')
-            .select('id, full_name')
-            .in('id', studentIds);
+          const profiles = await inBatches(studentIds, async (chunk) => {
+            const { data } = await supabase
+              .from('public_profiles')
+              .select('id, full_name')
+              .in('id', chunk);
+            return data;
+          });
           (profiles || []).forEach(p => {
             if (p.id && p.full_name) nameMap.set(p.id, p.full_name);
           });
@@ -146,6 +150,7 @@ export const SocialProofToast = () => {
     >
       <div className="bg-card border border-border shadow-lg rounded-xl p-4 relative">
         <button
+          aria-label="Dismiss notification"
           onClick={() => {
             setDismissed(true);
             safeSessionStorage.setItem('social-proof-dismissed', 'true');

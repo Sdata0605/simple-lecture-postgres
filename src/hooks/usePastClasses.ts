@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 
 interface PastClass {
   id: string;
@@ -41,37 +42,44 @@ export const usePastClasses = (options?: { withRecordingsOnly?: boolean; courseI
 
       if (courseIds.length === 0) return [];
 
-      let query = supabase
-        .from('scheduled_classes')
-        .select(`
-          id,
-          scheduled_at,
-          duration_minutes,
-          subject_id,
-          course_id,
-          teacher_id,
-          meeting_link,
-          recording_url,
-          recording_added_at,
-          is_cancelled,
-          bbb_meeting_id,
-          subject:popular_subjects(id, name),
-          course:courses(id, name),
-          teacher:teacher_profiles(full_name, avatar_url)
-        `)
-        .in('course_id', courseIds)
-        .eq('is_cancelled', false)
-        .lt('scheduled_at', new Date().toISOString())
-        .order('scheduled_at', { ascending: false });
+      // Fresh builder per chunk (PostgREST builders accumulate filters when reused)
+      const buildQuery = (chunk: string[]) => {
+        let query = supabase
+          .from('scheduled_classes')
+          .select(`
+            id,
+            scheduled_at,
+            duration_minutes,
+            subject_id,
+            course_id,
+            teacher_id,
+            meeting_link,
+            recording_url,
+            recording_added_at,
+            is_cancelled,
+            bbb_meeting_id,
+            subject:popular_subjects(id, name),
+            course:courses(id, name),
+            teacher:teacher_profiles(full_name, avatar_url)
+          `)
+          .in('course_id', chunk)
+          .eq('is_cancelled', false)
+          .lt('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: false });
 
-      if (options?.withRecordingsOnly) {
-        query = query.not('recording_url', 'is', null);
-      }
+        if (options?.withRecordingsOnly) {
+          query = query.not('recording_url', 'is', null);
+        }
+        return query;
+      };
 
-      const { data, error } = await query;
+      const rows = (await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await buildQuery(chunk);
+        if (error) throw error;
+        return data as unknown as PastClass[];
+      })).sort((a, b) => new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime());
 
-      if (error) throw error;
-      return (data as unknown as PastClass[]) || [];
+      return rows || [];
     },
   });
 };

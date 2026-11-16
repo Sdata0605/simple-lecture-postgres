@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { SUPABASE_DIRECT_URL } from "@/lib/supabaseUrl";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,7 +176,7 @@ export default function Settings() {
     });
   };
 
-  const webhookUrl = `${SUPABASE_DIRECT_URL}/functions/v1/bbb-webhooks`; // server-to-server, not browser
+  const webhookUrl = `https://oxwhqvsoelqqsblmqkxx.supabase.co/functions/v1/bbb-webhooks`; // NOTE: Webhooks use direct URL (server-to-server, not browser)
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(webhookUrl);

@@ -209,7 +209,6 @@ export const useCreateChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subject_id] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics", data.subject_id] });
       toast({ title: "Success", description: "Chapter created successfully" });
     },
     onError: (error: Error) => {
@@ -244,7 +243,6 @@ export const useUpdateChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subject_id] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics", data.subject_id] });
       toast({ title: "Success", description: "Chapter updated successfully" });
     },
     onError: (error: Error) => {
@@ -268,7 +266,6 @@ export const useDeleteChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subjectId] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics", data.subjectId] });
       toast({ title: "Success", description: "Chapter deleted successfully" });
     },
     onError: (error: Error) => {
@@ -341,7 +338,6 @@ export const useCreateTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapter_id] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic created successfully" });
     },
     onError: (error: Error) => {
@@ -376,7 +372,6 @@ export const useUpdateTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapter_id] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic updated successfully" });
     },
     onError: (error: Error) => {
@@ -400,7 +395,6 @@ export const useDeleteTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapterId] });
-      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic deleted successfully" });
     },
     onError: (error: Error) => {

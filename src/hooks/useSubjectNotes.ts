@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -68,12 +69,14 @@ export const useSubjectNotes = (subjectId: string | undefined, studentId: string
       const chapterIds = [...new Set(notes.map(n => n.chapter_id).filter((id): id is string => !!id))];
 
       // Fetch chapter metadata
-      const { data: chapters, error: chaptersError } = await supabase
-        .from('subject_chapters')
-        .select('id, chapter_number, title')
-        .in('id', chapterIds);
-
-      if (chaptersError) throw chaptersError;
+      const chapters = await inBatches(chapterIds, async (chunk) => {
+        const { data, error: chaptersError } = await supabase
+          .from('subject_chapters')
+          .select('id, chapter_number, title')
+          .in('id', chunk);
+        if (chaptersError) throw chaptersError;
+        return data;
+      });
 
       const chapterMap = new Map<string, { chapter_number: number; title: string }>();
       (chapters || []).forEach(ch => {

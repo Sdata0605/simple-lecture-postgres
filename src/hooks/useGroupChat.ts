@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { withDisplayName } from '@/lib/displayName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -129,10 +130,13 @@ export function useGroupMessages(groupId: string) {
       
       // Fetch sender profiles
       const senderIds = [...new Set((data || []).map(m => m.sender_id))];
-      const { data: profiles } = await supabase
-        .from('public_profiles')
-        .select('id, full_name, avatar_url, email_name')
-        .in('id', senderIds);
+      const profiles = await inBatches(senderIds, async (chunk) => {
+        const { data } = await supabase
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, email_name')
+          .in('id', chunk);
+        return data;
+      });
       
       const profileMap = new Map(profiles?.map(p => [p.id, withDisplayName(p)]) || []);
       
@@ -141,10 +145,13 @@ export function useGroupMessages(groupId: string) {
       let repliesData: { id: string; content: string; sender_id: string }[] = [];
       
       if (replyIds.length > 0) {
-        const { data: fetchedReplies } = await supabase
-          .from('forum_group_messages')
-          .select('id, content, sender_id')
-          .in('id', replyIds);
+        const fetchedReplies = await inBatches(replyIds, async (chunk) => {
+          const { data } = await supabase
+            .from('forum_group_messages')
+            .select('id, content, sender_id')
+            .in('id', chunk);
+          return data;
+        });
         repliesData = (fetchedReplies || []) as { id: string; content: string; sender_id: string }[];
       }
       
@@ -214,10 +221,13 @@ export function useGroupMembers(groupId: string) {
       
       // Fetch profiles separately
       const userIds = (data || []).map(m => m.user_id);
-      const { data: profiles } = await supabase
-        .from('public_profiles')
-        .select('id, full_name, avatar_url, email_name')
-        .in('id', userIds);
+      const profiles = await inBatches(userIds, async (chunk) => {
+        const { data } = await supabase
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, email_name')
+          .in('id', chunk);
+        return data;
+      });
       
       const profileMap = new Map(profiles?.map(p => [p.id, withDisplayName(p)]) || []);
       

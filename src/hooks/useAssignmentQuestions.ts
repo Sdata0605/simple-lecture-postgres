@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCurrentAuthUser } from './useCurrentAuthUser';
@@ -143,11 +144,16 @@ export const useSubjectAssignmentsForStudent = (subjectId: string | null, chapte
 
       // Fetch submissions for these assignments
       const assignmentIds = assignmentsData.map(a => a.id);
-      const { data: submissions, error: subError } = await supabase
-        .from('assignment_submissions')
-        .select('assignment_id, score, percentage, submitted_at, graded_at')
-        .eq('student_id', user.id)
-        .in('assignment_id', assignmentIds);
+      let subError: unknown = null;
+      const submissions = await inBatches(assignmentIds, async (chunk) => {
+        const { data, error: chunkError } = await supabase
+          .from('assignment_submissions')
+          .select('assignment_id, score, percentage, submitted_at, graded_at')
+          .eq('student_id', user.id)
+          .in('assignment_id', chunk);
+        if (chunkError) subError = chunkError;
+        return data;
+      });
 
       if (subError) {
         console.error('Error fetching submissions:', subError);

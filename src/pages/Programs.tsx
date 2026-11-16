@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { CategoryIcon } from "@/components/CategoryIcon";
 import { useSearchParams, useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +21,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import { MobileCategorySheet } from "@/components/mobile/MobileCategorySheet";
 import { formatINR } from "@/lib/utils";
-import { rewriteStorageUrl } from "@/lib/proxyUrl";
+import { rewriteStorageUrl, resizedStorageUrl } from "@/lib/proxyUrl";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo/constants";
 
 import { generateBreadcrumbSchema, generateCollectionPageSchema } from "@/lib/seo/structuredData";
@@ -30,10 +29,10 @@ import { generateBreadcrumbSchema, generateCollectionPageSchema } from "@/lib/se
 /** Compact trust badges for Programs page */
 const ProgramsTrustBadges = () => {
   const badges = [
-    { icon: Users, label: "1,00,000+ Students" },
+    { icon: Users, label: "50,000+ Students" },
     { icon: Star, label: "4.9★ Rating" },
     { icon: Headphones, label: "24/7 AI Support" },
-    { icon: IndianRupee, label: "From ₹1000/yr" },
+    { icon: IndianRupee, label: "From ₹2,950/yr (incl. GST)" },
   ];
 
   return (
@@ -56,7 +55,7 @@ const CategoryAIContent = ({ categoryName }: { categoryName: string }) => {
   const contentMap: Record<string, { question: string; answer: string }> = {
     "Board Exams": {
       question: "What are the best online courses for board exam preparation?",
-      answer: "SimpleLecture offers AI-powered board exam courses for SSLC 10th and PUC with personalised learning, 24/7 AI doubt clearing, chapter-wise video lessons, and board-pattern mock tests — all starting at just ₹1000/year. Join 1,00,000+ students scoring 90+ with our mastery-based approach."
+      answer: "SimpleLecture offers AI-powered board exam courses for SSLC 10th and PUC with personalised learning, 24/7 AI doubt clearing, chapter-wise video lessons, and board-pattern mock tests — all starting at just ₹2,950/year (incl. GST). Join 50,000+ students scoring 90+ with our mastery-based approach."
     },
     "Entrance Exams": {
       question: "Which online platform is best for NEET and JEE entrance exam preparation?",
@@ -426,7 +425,11 @@ const Programs = () => {
                       <div className="relative h-20 w-20 rounded-lg overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary/20 to-accent/20">
                         {(course.course_thumbnails?.storage_url || course.thumbnail_url) && (
                           <img
-                            src={rewriteStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url) || undefined}
+                            src={resizedStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url, 240, 240) || undefined}
+                            onError={(e) => {
+                              const orig = rewriteStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url);
+                              if (orig && e.currentTarget.src !== orig) e.currentTarget.src = orig;
+                            }}
                             alt={course.name}
                             className="h-full w-full object-cover"
                           />
@@ -466,6 +469,7 @@ const Programs = () => {
                                   {formatINR(course.original_price_inr)}
                                 </span>
                               )}
+                              <span className="text-[10px] text-muted-foreground">incl. 18% GST</span>
                             </>
                           ) : (
                             <span className="font-bold text-green-600 text-sm">Free</span>
@@ -627,7 +631,7 @@ const Programs = () => {
                     onClick={() => navigateToCategory(category.slug)}
                     className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
                   >
-                    <span className="mr-2"><CategoryIcon icon={category.icon} size="sm" /></span>
+                    <span className="mr-2">{category.icon}</span>
                     {category.name}
                   </TabsTrigger>
                 ))}
@@ -658,7 +662,7 @@ const Programs = () => {
                   onClick={() => navigateToCategory(categorySlug, subcat.slug)}
                 >
                   <CardContent className="p-6 text-center">
-                    <div className="mb-3"><CategoryIcon icon={subcat.icon} fallback="📖" size="lg" /></div>
+                    <div className="text-4xl mb-3">{subcat.icon || "📖"}</div>
                     <p className="font-semibold text-sm">{subcat.name}</p>
                     {subcat.description && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -694,7 +698,7 @@ const Programs = () => {
                   onClick={() => navigateToCategory(categorySlug, subcategorySlug, subsubcat.slug)}
                 >
                   <CardContent className="p-6 text-center">
-                    <div className="mb-3"><CategoryIcon icon={subsubcat.icon} fallback="📖" size="lg" /></div>
+                    <div className="text-4xl mb-3">{subsubcat.icon || "📖"}</div>
                     <p className="font-semibold text-sm">{subsubcat.name}</p>
                     {subsubcat.description && (
                       <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
@@ -762,7 +766,11 @@ const Programs = () => {
                       <div className="relative h-48 overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20">
                         {(course.course_thumbnails?.storage_url || course.thumbnail_url) && (
                           <img
-                          src={rewriteStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url) || undefined}
+                            src={resizedStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url, 640, 288) || undefined}
+                            onError={(e) => {
+                              const orig = rewriteStorageUrl(course.course_thumbnails?.storage_url || course.thumbnail_url);
+                              if (orig && e.currentTarget.src !== orig) e.currentTarget.src = orig;
+                            }}
                             alt={course.name}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -806,6 +814,7 @@ const Programs = () => {
                                     ₹{course.original_price_inr.toLocaleString()}
                                   </span>
                                 )}
+                                <span className="text-xs text-muted-foreground">incl. 18% GST</span>
                               </div>
                             ) : (
                               <span className="text-lg font-bold text-green-600">Free</span>

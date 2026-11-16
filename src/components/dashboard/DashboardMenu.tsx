@@ -1,17 +1,15 @@
+import { signOutEverywhere } from "@/lib/signOut";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LayoutDashboard, BookOpen, Video, Trophy, MessageSquare, HelpCircle, User, LogOut, Menu, Newspaper, CalendarClock, Grid3X3, FileText, NotebookPen, GraduationCap, LogIn } from "lucide-react";
+import { LayoutDashboard, BookOpen, Video, Trophy, MessageSquare, HelpCircle, User, LogOut, Menu, Newspaper, CalendarClock, Grid3X3, FileText, NotebookPen, GraduationCap } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { queryClient } from "@/lib/queryClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { openAskAI } from "@/lib/askAIStore";
 import { useMemo, type ComponentType } from "react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { isGuestVisibleMenuItem, isMenuRouteActive } from "./dashboardNavRules";
 
 type MenuItem =
   | { label: string; icon: ComponentType<{ className?: string }>; to: string }
@@ -21,9 +19,11 @@ const items: MenuItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
   { label: "Browse Courses", icon: Grid3X3, to: "/programs" },
   { label: "My Courses", icon: BookOpen, to: "/my-courses" },
+  { label: "Live Classes", icon: Video, to: "/live" },
   { label: "Time Table", icon: CalendarClock, to: "/timetable" },
   { label: "My Tests", icon: FileText, to: "/my-tests" },
   { label: "My Notes", icon: NotebookPen, to: "/my-notes" },
+  { label: "My Rewards", icon: Trophy, to: "/my-rewards" },
   { label: "Forum", icon: MessageSquare, to: "/forum" },
   { label: "Blog", icon: Newspaper, to: "/blog" },
   { label: "Support", icon: HelpCircle, to: "/support" },
@@ -34,9 +34,6 @@ export const DashboardMenu = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { data: profile } = useUserProfile();
-  const { user, isLoading: authLoading } = useAuth();
-  // While the session loads, neither the guest nor the signed-in controls are shown as final.
-  const isGuest = !authLoading && !user;
   const menuItems = useMemo(() => {
     const list: MenuItem[] = [...items];
     const myCoursesIdx = list.findIndex((i) => "to" in i && i.to === "/my-courses");
@@ -50,19 +47,11 @@ export const DashboardMenu = () => {
     return list;
   }, []);
 
-  const visibleItems = useMemo(
-    () =>
-      isGuest
-        ? menuItems.filter((item) => isGuestVisibleMenuItem("to" in item ? item.to : null))
-        : menuItems,
-    [isGuest, menuItems],
-  );
-
   const initials = (profile?.full_name || profile?.email || "U").slice(0, 2).toUpperCase();
 
   const handleLogout = async () => {
     queryClient.clear();
-    await supabase.auth.signOut();
+    await signOutEverywhere();
     navigate("/");
   };
 
@@ -79,25 +68,21 @@ export const DashboardMenu = () => {
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 pb-4">
-          {!isGuest && (
-            <>
-              <div className="flex items-center gap-3 mt-4">
-                <Avatar className="h-12 w-12">
-                  {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />}
-                  <AvatarFallback>{initials}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-medium leading-tight">{profile?.full_name || "Student"}</p>
-                  <p className="text-xs text-muted-foreground">{profile?.email || ""}</p>
-                </div>
-              </div>
+          <div className="flex items-center gap-3 mt-4">
+            <Avatar className="h-12 w-12">
+              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />}
+              <AvatarFallback>{initials}</AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="font-medium leading-tight">{profile?.full_name || "Student"}</p>
+              <p className="text-xs text-muted-foreground">{profile?.email || ""}</p>
+            </div>
+          </div>
 
-              <Separator className="my-4" />
-            </>
-          )}
+          <Separator className="my-4" />
 
           <nav className="space-y-1">
-            {visibleItems.map((item) => {
+            {menuItems.map((item) => {
               const { label, icon: Icon } = item;
               if ("askAI" in item) {
                 return (
@@ -110,7 +95,7 @@ export const DashboardMenu = () => {
                 );
               }
               const { to } = item;
-              const active = isMenuRouteActive(location.pathname, to);
+              const active = location.pathname === to;
               return (
                 <Link key={to} to={to} className="block">
                   <Button
@@ -127,17 +112,9 @@ export const DashboardMenu = () => {
         </div>
 
         <div className="border-t px-6 py-4">
-          {isGuest ? (
-            <Link to="/auth?tab=login" className="block">
-              <Button className="w-full justify-start gap-3">
-                <LogIn className="h-5 w-5" /> Sign in
-              </Button>
-            </Link>
-          ) : (
-            <Button variant="outline" className="w-full justify-start gap-3 text-destructive border-destructive" onClick={handleLogout}>
-              <LogOut className="h-5 w-5" /> Logout
-            </Button>
-          )}
+          <Button variant="outline" className="w-full justify-start gap-3 text-destructive border-destructive" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" /> Logout
+          </Button>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -101,20 +102,22 @@ export const useSelfTests = () => {
       const chapterIds = Array.from(new Set(tests.flatMap((t) => t.chapter_ids || [])));
       const topicIds = Array.from(new Set(tests.flatMap((t) => t.topic_ids || [])));
 
-      const [chaptersRes, topicsRes] = await Promise.all([
-        chapterIds.length
-          ? supabase.from('subject_chapters').select('id, title').in('id', chapterIds)
-          : Promise.resolve({ data: [] as any[] } as any),
-        topicIds.length
-          ? supabase.from('subject_topics').select('id, title').in('id', topicIds)
-          : Promise.resolve({ data: [] as any[] } as any),
+      const [chapters, topics] = await Promise.all([
+        inBatches(chapterIds, async (chunk) => {
+          const { data } = await supabase.from('subject_chapters').select('id, title').in('id', chunk);
+          return data;
+        }),
+        inBatches(topicIds, async (chunk) => {
+          const { data } = await supabase.from('subject_topics').select('id, title').in('id', chunk);
+          return data;
+        }),
       ]);
 
       const chapterMap = new Map<string, string>(
-        ((chaptersRes as any).data || []).map((c: any) => [c.id, c.title]),
+        (chapters as any[]).map((c: any) => [c.id, c.title]),
       );
       const topicMap = new Map<string, string>(
-        ((topicsRes as any).data || []).map((t: any) => [t.id, t.title]),
+        (topics as any[]).map((t: any) => [t.id, t.title]),
       );
 
       return tests.map((t) => ({

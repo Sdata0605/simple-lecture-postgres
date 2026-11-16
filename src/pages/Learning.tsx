@@ -23,7 +23,7 @@ import { SubjectNavigationBar } from "@/components/learning/SubjectNavigationBar
 
 import { AssignmentViewer } from "@/components/learning/AssignmentViewer";
 import { RecordedVideos } from "@/components/learning/RecordedVideos";
-import { VisualTutor } from "@/components/learning/VisualTutor";
+import { AITeachingAssistant } from "@/components/learning/AITeachingAssistant";
 import { openAskAI } from "@/lib/askAIStore";
 import { PreviousYearPapers } from "@/components/learning/PreviousYearPapers";
 import { PaperTestResults } from "@/components/learning/PaperTestResults";
@@ -250,8 +250,8 @@ export default function Learning({
 
 
   const [lockOpen, setLockOpen] = useState(false);
-  const [quotaDialog, setQuotaDialog] = useState<{ open: boolean; tab: "Visual Tutor" | "Doubts" }>(
-    { open: false, tab: "Visual Tutor" },
+  const [quotaDialog, setQuotaDialog] = useState<{ open: boolean; tab: "AI" | "Doubts" }>(
+    { open: false, tab: "AI" },
   );
 
   const { data: rawChapters, isLoading: chaptersLoading } = useSubjectChapters(selectedSubjectId || undefined);
@@ -418,7 +418,7 @@ export default function Learning({
       ];
     }
     return [
-      { value: "ai-assistant", label: "Visual Tutor", icon: Sparkles, desc: "Ask a question, get slides" },
+      { value: "ai-assistant", label: "AI", icon: Sparkles, desc: "Ask a question, get slides" },
       { value: "ai-teacher", label: "AI Teacher", icon: GraduationCap, desc: "Ask AI, talk to your teacher" },
       { value: "notes", label: "Notes", icon: BookOpen, desc: "Read topic notes" },
       { value: "important-notes", label: "Important Notes", icon: BookMarked, desc: "Generated revision notes" },
@@ -600,19 +600,19 @@ export default function Learning({
                 <TabsTrigger value="questions" className="py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
               </TabsList>
             ) : (
-              <TabsList className="p-1.5 h-auto bg-muted/80 rounded-xl border shadow-sm inline-flex w-full gap-1 overflow-x-auto">
-                <TabsTrigger value="videos" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Classes</TabsTrigger>
-                <TabsTrigger value="notes" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Notes</TabsTrigger>
-                <TabsTrigger value="important-notes" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Important Notes</TabsTrigger>
-                <TabsTrigger value="ai-assistant" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Visual Tutor</TabsTrigger>
-                <TabsTrigger value="ai-teacher" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">AI Teacher</TabsTrigger>
-                <TabsTrigger value="all-questions" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
-                <TabsTrigger value="solutions" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Solutions</TabsTrigger>
-                <TabsTrigger value="assignments" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Assignments</TabsTrigger>
-                <TabsTrigger value="dpp" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">DPP</TabsTrigger>
-                <TabsTrigger value="my-results" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Results</TabsTrigger>
-                <TabsTrigger value="doubts" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Doubts</TabsTrigger>
-                <TabsTrigger value="pyqs" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">PYQ's</TabsTrigger>
+              <TabsList className="p-1.5 h-auto bg-muted/80 rounded-xl border shadow-sm grid w-full grid-cols-12">
+                <TabsTrigger value="videos" className="py-2 rounded-lg font-medium text-sm">Classes</TabsTrigger>
+                <TabsTrigger value="notes" className="py-2 rounded-lg font-medium text-sm">Notes</TabsTrigger>
+                <TabsTrigger value="important-notes" className="py-2 rounded-lg font-medium text-xs">Important Notes</TabsTrigger>
+                <TabsTrigger value="ai-assistant" className="py-2 rounded-lg font-medium text-sm">AI</TabsTrigger>
+                <TabsTrigger value="ai-teacher" className="py-2 rounded-lg font-medium text-sm">AI Teacher</TabsTrigger>
+                <TabsTrigger value="all-questions" className="py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
+                <TabsTrigger value="solutions" className="py-2 rounded-lg font-medium text-sm">Solutions</TabsTrigger>
+                <TabsTrigger value="assignments" className="py-2 rounded-lg font-medium text-sm">Assignments</TabsTrigger>
+                <TabsTrigger value="dpp" className="py-2 rounded-lg font-medium text-sm">DPP</TabsTrigger>
+                <TabsTrigger value="my-results" className="py-2 rounded-lg font-medium text-sm">Results</TabsTrigger>
+                <TabsTrigger value="doubts" className="py-2 rounded-lg font-medium text-sm">Doubts</TabsTrigger>
+                <TabsTrigger value="pyqs" className="py-2 rounded-lg font-medium text-sm">PYQ's</TabsTrigger>
               </TabsList>
             )
           )}
@@ -647,7 +647,7 @@ export default function Learning({
           {!isChecker && (
             <>
               <TabsContent value="ai-assistant">
-                <VisualTutor
+                <AITeachingAssistant
                   key={selectedTopic.id}
                   topicId={selectedTopic.id} 
                   chapterId={selectedTopic.chapter_id}
@@ -669,7 +669,7 @@ export default function Learning({
                     previewMode: true,
                     previewCourseId: courseId,
                     previewLimit: previewLimits?.ai ?? 0,
-                    onPreviewQuotaExceeded: () => setQuotaDialog({ open: true, tab: "Visual Tutor" }),
+                    onPreviewQuotaExceeded: () => setQuotaDialog({ open: true, tab: "AI" }),
                   } : {})}
                 />
               </TabsContent>
@@ -706,19 +706,19 @@ export default function Learning({
                 <TabsTrigger value="questions" className="py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
               </TabsList>
             ) : (
-              <TabsList className="p-1.5 h-auto bg-muted/80 rounded-xl border shadow-sm inline-flex w-full gap-1 overflow-x-auto">
-                <TabsTrigger value="videos" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Classes</TabsTrigger>
-                <TabsTrigger value="notes" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Notes</TabsTrigger>
-                <TabsTrigger value="important-notes" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Important Notes</TabsTrigger>
-                <TabsTrigger value="ai-assistant" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Visual Tutor</TabsTrigger>
-                <TabsTrigger value="ai-teacher" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">AI Teacher</TabsTrigger>
-                <TabsTrigger value="all-questions" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
-                <TabsTrigger value="solutions" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Solutions</TabsTrigger>
-                <TabsTrigger value="assignments" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Assignments</TabsTrigger>
-                <TabsTrigger value="my-results" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Results</TabsTrigger>
-                <TabsTrigger value="doubts" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">Doubts</TabsTrigger>
+              <TabsList className="p-1.5 h-auto bg-muted/80 rounded-xl border shadow-sm grid w-full grid-cols-12">
+                <TabsTrigger value="videos" className="py-2 rounded-lg font-medium text-sm">Classes</TabsTrigger>
+                <TabsTrigger value="notes" className="py-2 rounded-lg font-medium text-sm">Notes</TabsTrigger>
+                <TabsTrigger value="important-notes" className="py-2 rounded-lg font-medium text-xs">Important Notes</TabsTrigger>
+                <TabsTrigger value="ai-assistant" className="py-2 rounded-lg font-medium text-sm">AI</TabsTrigger>
+                <TabsTrigger value="ai-teacher" className="py-2 rounded-lg font-medium text-sm">AI Teacher</TabsTrigger>
+                <TabsTrigger value="all-questions" className="py-2 rounded-lg font-medium text-sm">Questions</TabsTrigger>
+                <TabsTrigger value="solutions" className="py-2 rounded-lg font-medium text-sm">Solutions</TabsTrigger>
+                <TabsTrigger value="assignments" className="py-2 rounded-lg font-medium text-sm">Assignments</TabsTrigger>
+                <TabsTrigger value="my-results" className="py-2 rounded-lg font-medium text-sm">Results</TabsTrigger>
+                <TabsTrigger value="doubts" className="py-2 rounded-lg font-medium text-sm">Doubts</TabsTrigger>
                 
-                <TabsTrigger value="pyqs" className="flex-auto whitespace-nowrap px-3 py-2 rounded-lg font-medium text-sm">PYQ's</TabsTrigger>
+                <TabsTrigger value="pyqs" className="py-2 rounded-lg font-medium text-sm">PYQ's</TabsTrigger>
               </TabsList>
             )
           )}
@@ -747,7 +747,7 @@ export default function Learning({
           {!isChecker && (
             <>
               <TabsContent value="ai-assistant">
-                <VisualTutor
+                <AITeachingAssistant
                   key={selectedChapter.id}
                   chapterId={selectedChapter.id}
                   topicTitle={`Ch ${selectedChapter.chapter_number}: ${selectedChapter.title}`}
@@ -768,7 +768,7 @@ export default function Learning({
                     previewMode: true,
                     previewCourseId: courseId,
                     previewLimit: previewLimits?.ai ?? 0,
-                    onPreviewQuotaExceeded: () => setQuotaDialog({ open: true, tab: "Visual Tutor" }),
+                    onPreviewQuotaExceeded: () => setQuotaDialog({ open: true, tab: "AI" }),
                   } : {})}
                 />
               </TabsContent>
@@ -1014,7 +1014,7 @@ export default function Learning({
                           { value: "questions", label: "Questions", icon: HelpCircle },
                         ] : [
                           { value: "videos", label: "Classes", icon: Video },
-                          { value: "ai-assistant", label: "Visual Tutor", icon: Sparkles },
+                          { value: "ai-assistant", label: "AI", icon: Sparkles },
                           { value: "ai-teacher", label: "AI Teacher", icon: GraduationCap },
                           { value: "notes", label: "Notes", icon: BookOpen },
                           { value: "important-notes", label: "Important Notes", icon: BookMarked },
@@ -1058,7 +1058,7 @@ export default function Learning({
                     {(isChecker ? [
                       { value: "questions", label: "Questions", icon: HelpCircle, desc: "Browse Q&A" },
                     ] : [
-                      { value: "ai-assistant", label: "Visual Tutor", icon: Sparkles, desc: "Ask a question, get slides" },
+                      { value: "ai-assistant", label: "AI", icon: Sparkles, desc: "Ask a question, get slides" },
                       { value: "ai-teacher", label: "AI Teacher", icon: GraduationCap, desc: "Ask AI, talk to your teacher" },
                       { value: "notes", label: "Notes", icon: BookOpen, desc: "Read topic notes" },
                       { value: "important-notes", label: "Important Notes", icon: BookMarked, desc: "Generated revision notes" },

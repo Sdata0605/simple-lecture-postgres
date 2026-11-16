@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { withDisplayName } from '@/lib/displayName';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,10 +64,13 @@ export function useForumPosts(categorySlug?: string) {
 
       // Fetch author profiles separately
       const authorIds = [...new Set((data || []).map(p => p.author_id))];
-      const { data: profiles } = await supabase
-        .from('public_profiles')
-        .select('id, full_name, avatar_url, email_name')
-        .in('id', authorIds);
+      const profiles = await inBatches(authorIds, async (chunk) => {
+        const { data } = await supabase
+          .from('public_profiles')
+          .select('id, full_name, avatar_url, email_name')
+          .in('id', chunk);
+        return data;
+      });
 
       const profileMap = new Map(profiles?.map(p => [p.id, withDisplayName(p)]) || []);
 
@@ -166,17 +170,14 @@ export function useFlagPost() {
   const { toast } = useToast();
 
   return useMutation({
-    // A flag targets either a post (post_id) or a reply (reply_id); forum_flags requires one of them.
-    mutationFn: async ({ postId, replyId, reason }: { postId?: string; replyId?: string; reason: string }) => {
+    mutationFn: async ({ postId, reason }: { postId: string; reason: string }) => {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error('Not authenticated');
-      if (!postId && !replyId) throw new Error('Nothing to report');
 
       const { error } = await supabase
         .from('forum_flags')
         .insert({
-          post_id: replyId ? null : postId,
-          reply_id: replyId ?? null,
+          post_id: postId,
           flagged_by: user.user.id,
           reason,
         });

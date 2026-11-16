@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 import { useStudentCourseIds } from './useStudentEnrollments';
 
 export interface UpcomingClass {
@@ -30,27 +31,34 @@ export const useUpcomingClasses = () => {
       const now = new Date().toISOString();
       
       // Fetch scheduled classes with joins
-      const { data: scheduledClasses, error } = await supabase
-        .from('scheduled_classes')
-        .select(`
-          id,
-          subject,
-          subject_id,
-          notes,
-          scheduled_at,
-          duration_minutes,
-          meeting_link,
-          is_live,
-          teacher_id,
-          course_id
-        `)
-        .in('course_id', courseIds)
-        .gte('scheduled_at', now)
-        .eq('is_cancelled', false)
-        .order('scheduled_at', { ascending: true })
-        .limit(10);
+      // Each chunk keeps .order().limit(10); the merged rows are re-sorted and cut to the first 10
+      const scheduledClasses = (await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('scheduled_classes')
+          .select(`
+            id,
+            subject,
+            subject_id,
+            notes,
+            scheduled_at,
+            duration_minutes,
+            meeting_link,
+            is_live,
+            teacher_id,
+            course_id
+          `)
+          .in('course_id', chunk)
+          .gte('scheduled_at', now)
+          .eq('is_cancelled', false)
+          .order('scheduled_at', { ascending: true })
+          .limit(10);
 
-      if (error) throw error;
+        if (error) throw error;
+        return data;
+      }))
+        .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())
+        .slice(0, 10);
+
       if (!scheduledClasses || scheduledClasses.length === 0) return [];
 
       // Get unique IDs for batch fetching
@@ -58,23 +66,26 @@ export const useUpcomingClasses = () => {
       const teacherIds = [...new Set(scheduledClasses.map(c => c.teacher_id).filter(Boolean))] as string[];
       const courseIdsUnique = [...new Set(scheduledClasses.map(c => c.course_id).filter(Boolean))] as string[];
 
-      // Batch fetch related data
-      const [subjectsResult, teachersResult, coursesResult] = await Promise.all([
-        subjectIds.length > 0 
-          ? supabase.from('popular_subjects').select('id, name').in('id', subjectIds)
-          : { data: [] },
-        teacherIds.length > 0
-          ? supabase.from('teacher_profiles').select('id, full_name, avatar_url').in('id', teacherIds)
-          : { data: [] },
-        courseIdsUnique.length > 0
-          ? supabase.from('courses').select('id, name').in('id', courseIdsUnique)
-          : { data: [] }
+      // Batch fetch related data (each id list is chunked)
+      const [subjectRows, teacherRows, courseRows] = await Promise.all([
+        inBatches(subjectIds, async (chunk) => {
+          const { data } = await supabase.from('popular_subjects').select('id, name').in('id', chunk);
+          return data;
+        }),
+        inBatches(teacherIds, async (chunk) => {
+          const { data } = await supabase.from('teacher_profiles').select('id, full_name, avatar_url').in('id', chunk);
+          return data;
+        }),
+        inBatches(courseIdsUnique, async (chunk) => {
+          const { data } = await supabase.from('courses').select('id, name').in('id', chunk);
+          return data;
+        }),
       ]);
 
       // O(1) Map lookups instead of O(n) .find()
-      const subjectMap = new Map((subjectsResult.data || []).map(s => [s.id, s.name]));
-      const courseMap = new Map((coursesResult.data || []).map(c => [c.id, c.name]));
-      const teacherMap = new Map((teachersResult.data || []).map(t => [t.id, t]));
+      const subjectMap = new Map((subjectRows || []).map(s => [s.id, s.name]));
+      const courseMap = new Map((courseRows || []).map(c => [c.id, c.name]));
+      const teacherMap = new Map((teacherRows || []).map(t => [t.id, t]));
 
       return scheduledClasses.map(classItem => ({
         id: classItem.id,

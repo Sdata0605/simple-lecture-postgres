@@ -13,14 +13,12 @@ import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import CreatePostDialog from '@/components/forum/CreatePostDialog';
 import { BottomNav } from '@/components/mobile/BottomNav';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const ForumCategory = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
   const { data: posts, isLoading } = useForumPosts(slug);
   const { data: categories } = useForumCategories();
   const { data: user } = useQuery({
@@ -35,16 +33,15 @@ const ForumCategory = () => {
   const category = categories?.find(c => c.slug === slug);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {!isMobile && <DashboardHeader />}
+    <div className="min-h-screen pb-20 md:pb-0 bg-background flex flex-col">
+      <Header />
       <SEOHead
         title={category?.name ? `${category.name} Forum` : 'Forum Category'}
         description={category?.description || `Browse and ask questions in the ${category?.name || ''} category on SimpleLecture forum.`}
         keywords={`${category?.name || ''}, forum, student questions, discussions`}
         canonicalUrl={`https://simplelecture.com/forum/category/${slug}`}
       />
-      <main className="flex-1 bg-muted/30">
-      <div className="container mx-auto px-4 py-6 md:py-8 max-w-5xl pb-24 md:pb-12">
+      <div className="container mx-auto px-4 py-4 md:py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -87,7 +84,7 @@ const ForumCategory = () => {
             ))}
           </div>
         ) : posts?.length === 0 ? (
-          <Card className="text-center py-12 rounded-xl border-0 shadow-lg">
+          <Card className="text-center py-12">
             <CardContent>
               <MessageSquare className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="font-semibold mb-2">No questions yet</h3>
@@ -153,7 +150,8 @@ const ForumCategory = () => {
           </div>
         )}
       </div>
-      </main>
+
+      <Footer />
 
       <CreatePostDialog 
         open={createPostOpen} 
@@ -161,7 +159,7 @@ const ForumCategory = () => {
         categories={categories || []}
         defaultCategoryId={category?.id}
       />
-      {isMobile ? <BottomNav /> : <Footer />}
+      <BottomNav />
     </div>
   );
 };

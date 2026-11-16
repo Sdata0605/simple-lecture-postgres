@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 import { addDays, startOfDay, setHours, setMinutes, setSeconds, differenceInMinutes } from 'date-fns';
 
 export interface UpcomingClass {
@@ -45,20 +46,23 @@ export const useUpcomingClassesFromTimetable = () => {
       const courseIds = enrollments.map(e => e.course_id);
 
       // Fetch timetable entries for enrolled courses
-      const { data: timetableEntries, error } = await supabase
-        .from('course_timetables')
-        .select(`
-          *,
-          subject:popular_subjects(id, name),
-          instructor:teacher_profiles(id, full_name, avatar_url),
-          course:courses(id, name)
-        `)
-        .in('course_id', courseIds)
-        .eq('is_active', true)
-        .order('day_of_week', { ascending: true })
-        .order('start_time', { ascending: true });
+      const timetableEntries = (await inBatches(courseIds, async (chunk) => {
+        const { data, error } = await supabase
+          .from('course_timetables')
+          .select(`
+            *,
+            subject:popular_subjects(id, name),
+            instructor:teacher_profiles(id, full_name, avatar_url),
+            course:courses(id, name)
+          `)
+          .in('course_id', chunk)
+          .eq('is_active', true)
+          .order('day_of_week', { ascending: true })
+          .order('start_time', { ascending: true });
 
-      if (error) throw error;
+        if (error) throw error;
+        return data;
+      })).sort((a, b) => (a.day_of_week - b.day_of_week) || String(a.start_time).localeCompare(String(b.start_time)));
       if (!timetableEntries || timetableEntries.length === 0) return [];
 
       const now = new Date();

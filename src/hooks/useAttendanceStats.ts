@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { inBatches } from '@/lib/batchIn';
 
 interface AttendanceStats {
   totalClasses: number;
@@ -59,12 +60,15 @@ export const useAttendanceStats = (studentId?: string) => {
       const courseIds = enrollments.map(e => e.course_id);
 
       // Get all past scheduled classes for enrolled courses
-      const { data: scheduledClasses } = await supabase
-        .from('scheduled_classes')
-        .select('id, course_id, scheduled_at, courses(id, name)')
-        .in('course_id', courseIds)
-        .eq('is_cancelled', false)
-        .lt('scheduled_at', new Date().toISOString());
+      const scheduledClasses = await inBatches(courseIds, async (chunk) => {
+        const { data } = await supabase
+          .from('scheduled_classes')
+          .select('id, course_id, scheduled_at, courses(id, name)')
+          .in('course_id', chunk)
+          .eq('is_cancelled', false)
+          .lt('scheduled_at', new Date().toISOString());
+        return data;
+      });
 
       const totalClasses = scheduledClasses?.length || 0;
       const attendedClasses = attendanceData?.filter(a => a.status === 'present').length || 0;

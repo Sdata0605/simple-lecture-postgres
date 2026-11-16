@@ -1,3 +1,4 @@
+import { inBatches } from '../lib/batchIn';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -28,18 +29,38 @@ export function useUnansweredPosts() {
   return useQuery({
     queryKey: ['forum-unanswered-posts'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // No foreign keys exist between these tables, so the author and category are loaded separately
+      // and attached here (an embedded join would be rejected by the database).
+      const { data: posts, error } = await supabase
         .from('forum_posts')
-        .select(`
-          *,
-          category:forum_categories!forum_posts_category_id_fkey(name, slug, is_general)
-        `)
+        .select('*')
         .eq('is_answered', false)
         .eq('status', 'published')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data;
+      const rows = posts ?? [];
+      const authorIds = [...new Set(rows.map((p) => p.author_id).filter(Boolean))];
+      const categoryIds = [...new Set(rows.map((p) => p.category_id).filter(Boolean))];
+
+      const [authors, categories] = await Promise.all([
+        inBatches(authorIds, async (chunk) => {
+          const { data } = await supabase.from('profiles').select('id, full_name, avatar_url').in('id', chunk);
+          return data;
+        }),
+        inBatches(categoryIds, async (chunk) => {
+          const { data } = await supabase.from('forum_categories').select('id, name, slug, is_general').in('id', chunk);
+          return data;
+        }),
+      ]);
+
+      const authorById = new Map((authors ?? []).map((a: any) => [a.id, { full_name: a.full_name, avatar_url: a.avatar_url }]));
+      const categoryById = new Map((categories ?? []).map((c: any) => [c.id, { name: c.name, slug: c.slug, is_general: c.is_general }]));
+      return rows.map((p) => ({
+        ...p,
+        author: authorById.get(p.author_id) ?? null,
+        category: categoryById.get(p.category_id) ?? null,
+      }));
     },
   });
 }
@@ -62,10 +83,13 @@ export function useFlaggedContent() {
 
       // Fetch reporter profiles
       const reporterIds = [...new Set((data || []).map(f => f.flagged_by))];
-      const { data: profiles } = await supabase
-        .from('public_profiles')
-        .select('id, full_name')
-        .in('id', reporterIds);
+      const profiles = await inBatches(reporterIds, async (chunk) => {
+        const { data } = await supabase
+          .from('public_profiles')
+          .select('id, full_name')
+          .in('id', chunk);
+        return data;
+      });
 
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
 

@@ -18,8 +18,8 @@ import { GroupInfoSheet } from '@/components/forum/GroupInfoSheet';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ArrowLeft, Lock } from 'lucide-react';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { BottomNav } from '@/components/mobile/BottomNav';
+import { Header } from '@/components/Header';
 
 export default function ForumGroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -27,7 +27,6 @@ export default function ForumGroupChat() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<{ id: string; content: string; senderName: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isMobile = useIsMobile();
 
   const { data: user } = useQuery({
     queryKey: ['current-user'],
@@ -138,7 +137,7 @@ export default function ForumGroupChat() {
       <Helmet>
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
-      {!isMobile && <DashboardHeader />}
+      <Header />
       {/* Header */}
       <GroupChatHeader
         group={group}
@@ -146,9 +145,8 @@ export default function ForumGroupChat() {
         onInfoClick={() => setInfoOpen(true)}
       />
 
-      <div className="container mx-auto max-w-5xl flex-1 flex flex-col min-h-0">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto bg-muted/30">
+      <div className="flex-1 overflow-y-auto">
         <MessageList
           messages={messages || []}
           currentUserId={user?.id || ''}
@@ -180,7 +178,6 @@ export default function ForumGroupChat() {
         groupId={groupId!}
         disabled={sendMessage.isPending}
       />
-      </div>
 
       {/* Group Info Sheet */}
       <GroupInfoSheet
@@ -192,6 +189,7 @@ export default function ForumGroupChat() {
         isCreator={isCreator}
         currentUserId={user?.id || ''}
       />
+      <BottomNav />
     </div>
   );
 }

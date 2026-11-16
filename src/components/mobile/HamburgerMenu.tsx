@@ -1,10 +1,10 @@
+import { signOutEverywhere } from "@/lib/signOut";
 import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu, LayoutDashboard, BookOpen, Video, Trophy, MessageSquare, HelpCircle, User, LogOut, Home, Grid3X3, LogIn, UserPlus, Newspaper, FileText, GraduationCap } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { supabase } from "@/integrations/supabase/client";
 import { queryClient } from "@/lib/queryClient";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,6 +19,7 @@ const authenticatedMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
   { icon: Grid3X3, label: "Browse Courses", path: "/programs" },
   { icon: BookOpen, label: "My Courses", path: "/my-courses" },
+  { icon: Video, label: "Live Classes", path: "/live" },
   { icon: FileText, label: "My Tests", path: "/my-tests" },
   { icon: MessageSquare, label: "Forum", path: "/forum" },
   { icon: Newspaper, label: "Blog", path: "/blog" },
@@ -43,7 +44,7 @@ export const HamburgerMenu = () => {
 
   const handleLogout = async () => {
     queryClient.clear();
-    await supabase.auth.signOut();
+    await signOutEverywhere();
     navigate("/");
   };
 

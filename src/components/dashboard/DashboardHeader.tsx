@@ -13,15 +13,11 @@ import { useNotices } from "@/hooks/useNotices";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useSearchCourses } from "@/hooks/usePaginatedCourses";
-import { useAuth } from "@/contexts/AuthContext";
 
 export const DashboardHeader = ({ minimal = false }: { minimal?: boolean } = {}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [notificationOpen, setNotificationOpen] = useState(false);
-  const { user, isLoading: authLoading } = useAuth();
-  // While the session loads, neither the guest nor the signed-in controls are shown as final.
-  const isGuest = !authLoading && !user;
   const { unreadCount } = useNotices();
   const { data: profile } = useUserProfile();
 
@@ -153,42 +149,29 @@ export const DashboardHeader = ({ minimal = false }: { minimal?: boolean } = {})
         </div>
 
         <div className="flex items-center gap-2">
-          {isGuest ? (
-            <>
-              <Link to="/auth?tab=login">
-                <Button variant="ghost">Login</Button>
-              </Link>
-              <Link to="/auth?tab=signup">
-                <Button>Sign Up</Button>
-              </Link>
-            </>
-          ) : (
-            <>
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative" onClick={() => setNotificationOpen(true)}>
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                  >
-                    {unreadCount}
-                  </Badge>
-                )}
-              </Button>
+          {/* Notifications */}
+          <Button variant="ghost" size="icon" className="relative" onClick={() => setNotificationOpen(true)}>
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <Badge
+                variant="destructive"
+                className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              >
+                {unreadCount}
+              </Badge>
+            )}
+          </Button>
 
-              {/* Profile */}
-              <Button variant="ghost" className="px-1" onClick={() => navigate("/profile")}>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8">
-                    {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />}
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
-                  <span className="hidden md:inline text-sm">{profile?.full_name || "Student"}</span>
-                </div>
-              </Button>
-            </>
-          )}
+          {/* Profile */}
+          <Button variant="ghost" className="px-1" onClick={() => navigate("/profile")}>
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || "User"} />}
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <span className="hidden md:inline text-sm">{profile?.full_name || "Student"}</span>
+            </div>
+          </Button>
 
           {/* Right-side expanding menu */}
           <DashboardMenu />

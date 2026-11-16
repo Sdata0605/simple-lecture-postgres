@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { SUPABASE_URL } from '@/lib/supabaseUrl';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { SmartHeader } from '@/components/SmartHeader';
@@ -29,6 +30,8 @@ import { EnrollAuthStep } from '@/components/enroll/EnrollAuthStep';
 import { EnrollStepIndicator } from '@/components/enroll/EnrollStepIndicator';
 import { BottomNav } from '@/components/mobile/BottomNav';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getCoursePriceBreakdown } from '@/lib/gst';
+import { courseEventPrefix, onceKey, trackEvent } from '@/lib/analytics';
 
 declare global {
   interface Window {
@@ -120,6 +123,23 @@ const Enroll = () => {
     enabled: !!courseSlug,
   });
 
+  // Enrollment page view: once per course per session, after the course loads.
+  useEffect(() => {
+    if (!course?.slug || !course?.name) return;
+    if (!onceKey(`enrollment_view_${course.slug}`)) return;
+    const eventName = `${courseEventPrefix(course.slug, course.name)}_Enrollment_view`;
+    trackEvent({
+      ga4: eventName,
+      metaCustom: eventName,
+      params: {
+        course_id: course.slug,
+        course_name: course.name,
+        value: Number(course.price_inr) || 0,
+        currency: 'INR',
+      },
+    });
+  }, [course?.slug, course?.name, course?.price_inr]);
+
   // Featured course-specific promo (active + within validity window)
   const { data: featuredPromo } = useQuery({
     queryKey: ['featured-course-promo', course?.id],
@@ -191,24 +211,6 @@ const Enroll = () => {
     }
   };
 
-  const calculatePriceAfterDiscount = () => {
-    if (!course) return 0;
-    const basePrice = course.price_inr || 0;
-    
-    if (!discount) return basePrice;
-
-    if (discount.discount_percent) {
-      return basePrice - (basePrice * discount.discount_percent / 100);
-    } else if (discount.discount_amount) {
-      return Math.max(0, basePrice - discount.discount_amount);
-    }
-    
-    return basePrice;
-  };
-
-  const calculateGST = (amount: number) => Math.round(amount * 0.18);
-  const calculateTotalWithGST = (amount: number) => amount + calculateGST(amount);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -234,12 +236,11 @@ const Enroll = () => {
         return;
       }
 
-      const subtotal = calculatePriceAfterDiscount();
-      const gst = calculateGST(subtotal);
-      const finalAmount = subtotal + gst;
+      // course.price_inr is GST-inclusive; breakdown.total is the amount to charge (after promo)
+      const { total } = getCoursePriceBreakdown(course.price_inr || 0, discount);
 
       // Free course short-circuit: create enrollment via edge function, skip Razorpay
-      if (finalAmount <= 0) {
+      if (total <= 0) {
         const { data: freeData, error: freeErr } = await supabase.functions.invoke('enroll-free-course', {
           body: { courseId: course.id },
         });
@@ -256,8 +257,8 @@ const Enroll = () => {
       // Create payment order
       const { data: orderData, error: orderError } = await supabase.functions.invoke('create-payment-order', {
         body: {
-          amount: finalAmount,
-          courses: [{ id: course.id, name: course.name, price: finalAmount }],
+          amount: total,
+          courses: [{ id: course.id, name: course.name, price: total }],
           customerInfo: formData,
           promoCode: discount ? promoCode.toUpperCase() : null,
           userId: user.id
@@ -267,10 +268,13 @@ const Enroll = () => {
       if (orderError) throw orderError;
 
       // Open Razorpay checkout
+      // Charge the server-computed amount so the Razorpay order and checkout match
+      const payAmount = typeof orderData?.amount === 'number' ? orderData.amount : total;
+
       if (orderData.razorpayOrderId && orderData.razorpayKeyId && window.Razorpay) {
         const options = {
           key: orderData.razorpayKeyId,
-          amount: finalAmount * 100,
+          amount: payAmount * 100,
           currency: 'INR',
           name: 'SimpleLecture',
           description: `Payment for ${course.name}`,
@@ -281,46 +285,45 @@ const Enroll = () => {
             contact: formData.phone
           },
           theme: { color: '#6366f1' },
-          callback_url: `${window.location.origin}/payment-callback`,
+          // Bank/card pages return the result to our server endpoint, which verifies the
+          // payment, enrolls the student and redirects back to the app's result page.
+          callback_url: `${SUPABASE_URL}/functions/v1/razorpay-callback?return=${encodeURIComponent(window.location.origin)}`,
           handler: async (response: any) => {
             paymentHandled.current = true;
             try {
               console.log('[Enroll] Razorpay handler fired, verifying payment...', response.razorpay_payment_id);
+              // The server takes the course, user and amount from the order itself;
+              // only the Razorpay response fields and our order id are sent.
               const { data: verifyData, error: verifyError } = await supabase.functions.invoke('verify-payment', {
                 body: {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                   orderId: orderData.orderId,
-                  userId: user.id,
-                  courses: [{ id: course.id, price: finalAmount }]
                 }
               });
 
               if (verifyError || !verifyData?.verified) {
-                console.warn('[Enroll] Verification issue, proceeding anyway. Error:', verifyError, 'Data:', verifyData);
-                toast.info('Payment received! Your enrollment is being processed.');
-              } else {
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-                toast.success('Enrollment successful!');
+                // Never show success unless the server confirmed the payment.
+                console.error('[Enroll] Payment not verified:', verifyError, verifyData);
+                // The failed page re-checks the order row and shows "confirming" if it is still pending.
+                setIsProcessing(false);
+                navigate(`/payment-failed?orderId=${encodeURIComponent(orderData.orderId)}`, {
+                  state: { orderId: orderData.orderId, courseSlug: course.slug },
+                });
+                return;
               }
 
-              navigate('/payment-success', {
-                state: {
-                  orderId: orderData.orderId,
-                  amount: finalAmount,
-                  courses: [{ id: course.id, course_name: course.name }]
-                }
+              toast.success('Enrollment successful!');
+              // The success page shows the receipt only after reading the 'success' row itself.
+              navigate(`/payment-success?orderId=${encodeURIComponent(orderData.orderId)}`, {
+                state: { orderId: orderData.orderId },
               });
             } catch (err) {
               console.error('[Enroll] Verification error:', err);
-              toast.info('Payment received! Your enrollment is being processed.');
-              navigate('/payment-success', {
-                state: {
-                  orderId: orderData.orderId,
-                  amount: finalAmount,
-                  courses: [{ id: course.id, course_name: course.name }]
-                }
+              setIsProcessing(false);
+              navigate(`/payment-failed?orderId=${encodeURIComponent(orderData.orderId)}`, {
+                state: { orderId: orderData.orderId, courseSlug: course.slug },
               });
             }
           },
@@ -337,8 +340,30 @@ const Enroll = () => {
         paymentHandled.current = false;
         const razorpay = new window.Razorpay(options);
         razorpay.on('payment.failed', (response: any) => {
-          toast.error(response.error.description || 'Payment failed');
+          paymentHandled.current = true;
+          const reason = response?.error?.description || 'Payment failed';
           setIsProcessing(false);
+          try { razorpay.close(); } catch { /* modal may already be closed */ }
+          navigate(`/payment-failed?orderId=${encodeURIComponent(orderData.orderId)}`, {
+            state: { orderId: orderData.orderId, courseSlug: course.slug, reason },
+          });
+        });
+        trackEvent({
+          ga4: 'begin_checkout',
+          meta: 'InitiateCheckout',
+          params: {
+            currency: 'INR',
+            value: payAmount,
+            items: [{ item_id: course.slug, item_name: course.name, price: total }],
+          },
+          metaParams: {
+            content_ids: [course.slug],
+            content_name: course.name,
+            content_type: 'product',
+            value: payAmount,
+            currency: 'INR',
+            num_items: 1,
+          },
         });
         razorpay.open();
       } else {
@@ -403,11 +428,8 @@ const Enroll = () => {
   }
 
   const subjects = course.course_subjects?.map((cs: any) => cs.popular_subjects?.name).filter(Boolean) || [];
-  const originalPrice = course.price_inr || 0;
-  const priceAfterDiscount = calculatePriceAfterDiscount();
-  const discountAmount = originalPrice - priceAfterDiscount;
-  const gstAmount = calculateGST(priceAfterDiscount);
-  const totalWithGST = calculateTotalWithGST(priceAfterDiscount);
+  const breakdown = getCoursePriceBreakdown(course.price_inr || 0, discount);
+  const { original: originalPrice, discount: discountAmount, base, gst, total } = breakdown;
 
   return (
     <div className="min-h-screen flex flex-col pb-20 md:pb-0">
@@ -547,9 +569,9 @@ const Enroll = () => {
                         type="submit"
                         size="lg"
                         className="w-full"
-                        disabled={isProcessing || !agreedToTerms}
+                        disabled={isProcessing || !agreedToTerms || !course}
                       >
-                        {isProcessing ? 'Processing...' : (totalWithGST <= 0 ? 'Enroll Free' : `Pay ₹${totalWithGST.toLocaleString()}`)}
+                        {isProcessing ? 'Processing...' : (total <= 0 ? 'Enroll Free' : `Pay ₹${total.toLocaleString()}`)}
                       </Button>
                     </form>
                   </CardContent>
@@ -676,7 +698,7 @@ const Enroll = () => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span>Course Price</span>
+                    <span>Course Price (incl. GST)</span>
                     <span>₹{originalPrice.toLocaleString()}</span>
                   </div>
                   
@@ -687,22 +709,24 @@ const Enroll = () => {
                     </div>
                   )}
 
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span>Subtotal</span>
-                      <span>₹{priceAfterDiscount.toLocaleString()}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal (before GST)</span>
+                    <span>₹{base.toLocaleString()}</span>
+                  </div>
 
                   <div className="flex justify-between text-sm">
                     <span>GST (18%)</span>
-                    <span>₹{gstAmount.toLocaleString()}</span>
+                    <span>₹{gst.toLocaleString()}</span>
                   </div>
 
                   <div className="border-t pt-3 flex justify-between font-bold text-lg">
                     <span>Total Amount</span>
-                    <span className="text-primary">₹{totalWithGST.toLocaleString()}</span>
+                    <span className="text-primary">₹{total.toLocaleString()}</span>
                   </div>
+
+                  <p className="text-xs text-muted-foreground text-right">
+                    ₹{base.toLocaleString()} + ₹{gst.toLocaleString()} GST (18%) = ₹{total.toLocaleString()}
+                  </p>
                 </CardContent>
               </Card>
 

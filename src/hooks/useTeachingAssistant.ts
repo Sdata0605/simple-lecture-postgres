@@ -77,7 +77,7 @@ export function useTeachingAssistant() {
 
   // currentResponse comes from either the background job (preferred — survives unmount)
   // or a local doubt-mode call. When the job still requires user confirmation, hide it
-  // so VisualTutor can show its "Start presentation" gate first.
+  // so AITeachingAssistant can show its "Start presentation" gate first.
   const jobResponse =
     jobCtx.job && jobCtx.job.status === 'ready' && !jobCtx.job.requiresConfirmation
       ? jobCtx.job.response ?? null
@@ -135,7 +135,7 @@ export function useTeachingAssistant() {
         return null;
       }
       // Keep local mirror only if the answer is auto-consumable (user stayed on the AI tab).
-      // If the job requires confirmation, the inline gate in VisualTutor will drive consumption.
+      // If the job requires confirmation, the inline gate in AITeachingAssistant will drive consumption.
       return response;
     } finally {
       setIsLoading(false);
