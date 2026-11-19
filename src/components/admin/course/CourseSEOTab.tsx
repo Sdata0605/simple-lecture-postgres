@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
+import { SUPABASE_URL } from "@/lib/supabaseUrl";
 
 interface Props {
   formData: any;
@@ -29,8 +30,7 @@ export const CourseSEOTab = ({ formData, onChange }: Props) => {
   const effectiveOgImage = formData.og_image_url || formData.thumbnail_url || "";
 
   const slug = formData.slug || "<slug>";
-  const projectRef = "oxwhqvsoelqqsblmqkxx";
-  const rawSeoUrl = `https://${projectRef}.functions.supabase.co/seo-head?path=/course/${slug}`;
+  const rawSeoUrl = `${SUPABASE_URL}/functions/v1/seo-head?path=/course/${slug}`;
 
   return (
     <div className="space-y-6">

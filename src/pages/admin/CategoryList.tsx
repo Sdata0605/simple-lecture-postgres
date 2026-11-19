@@ -1,4 +1,5 @@
 import { useState, useMemo, useDeferredValue } from "react";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,7 +149,7 @@ export default function CategoryList() {
               filteredCategories.map((category) => (
                 <TableRow key={category.id}>
                   <TableCell>
-                    <span className="text-2xl">{category.icon || "📁"}</span>
+                    <CategoryIcon icon={category.icon} fallback="📁" size="lg" />
                   </TableCell>
                   <TableCell className="font-medium">{category.name}</TableCell>
                   <TableCell>

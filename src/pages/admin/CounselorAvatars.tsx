@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { SUPABASE_DIRECT_URL } from "@/lib/supabaseUrl";
+import { DEFAULT_UPSTREAM, proxyUrl } from "@/lib/serverConfig";
 
 interface DynamicAvatar {
   id: string;
@@ -47,23 +48,22 @@ interface GenerateResponse {
   error?: string;
 }
 
-const DEFAULT_BASE_URL = "http://69.197.145.4:5004";
+const DEFAULT_BASE_URL = DEFAULT_UPSTREAM;
 const LANGUAGES = ["english", "kannada", "hindi", "bengali", "tamil", "telugu", "malayalam", "marathi", "gujarati", "punjabi", "odia", "assamese"];
 const SPEAKERS = ["abhilash", "vidya", "manisha", "karun", "hitesh", "anushka", "arya"];
 
 function cleanBaseUrl(value: string) {
   const trimmed = value.trim().replace(/\/+$/, "");
-  // A saved/typed value can lose its scheme (e.g. "204.12.237.78:5004"
-  // instead of "http://204.12.237.78:5004") — the proxy rejects that as an
+  if (!trimmed) return ""; // empty = the backend's default avatar server
+  // A typed value can lose its scheme (for example "host:5004"); the proxy rejects that as an
   // invalid base URL outright, so default to http:// rather than erroring.
   return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
 }
 
-// Direct http:// URL to the avatar server — only safe for plain <a href>
-// navigation (full-page nav isn't blocked by mixed-content policy the way
-// fetch()/XHR is), never for fetch(). Used for video/audio/download links.
+// Link for video/audio/download anchors. It goes through the backend proxy, so the browser never
+// sees the avatar server's address.
 function buildUrl(baseUrl: string, path: string) {
-  return `${cleanBaseUrl(baseUrl)}${path}`;
+  return buildProxyUrl(baseUrl, path);
 }
 
 // Routed through counselor-avatar-proxy so the HTTPS admin panel can call
@@ -71,8 +71,7 @@ function buildUrl(baseUrl: string, path: string) {
 // Use for every fetch()/XHR call to the avatar API.
 const PROXY_URL = `${SUPABASE_DIRECT_URL}/functions/v1/counselor-avatar-proxy`;
 function buildProxyUrl(baseUrl: string, path: string) {
-  const search = new URLSearchParams({ path, base: cleanBaseUrl(baseUrl) });
-  return `${PROXY_URL}?${search.toString()}`;
+  return proxyUrl(PROXY_URL, path, cleanBaseUrl(baseUrl));
 }
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
@@ -262,7 +261,7 @@ export default function CounselorAvatars() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto]">
-            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="http://69.197.145.4:5004" />
+            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="Default server (leave empty)" />
             <Button variant="outline" onClick={saveBaseUrl}>Save</Button>
             <Button onClick={loadServerData} disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}

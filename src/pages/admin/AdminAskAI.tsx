@@ -20,7 +20,6 @@ import { convertMathpixToStandard } from "@/components/learning/player/utils/lat
 import { SUPABASE_DIRECT_URL } from "@/lib/supabaseUrl";
 import { ArrowLeft, ArrowRight, BookOpen, Film, Loader2, Play, Sparkles } from "lucide-react";
 
-const CONTENT_API_BASE = "http://116.202.230.124:8000";
 const CONTENT_PROXY_URL = `${SUPABASE_DIRECT_URL}/functions/v1/ai-teaching-proxy`;
 const SLIDE_PRELOAD_AHEAD = 3;
 
@@ -73,7 +72,6 @@ type SlidePayload = {
 function buildContentUrl(path: string, params?: Record<string, string | number | undefined>) {
   const search = new URLSearchParams();
   search.set("path", path);
-  search.set("base", CONTENT_API_BASE);
   Object.entries(params || {}).forEach(([key, value]) => {
     if (value !== undefined) search.set(key, String(value));
   });

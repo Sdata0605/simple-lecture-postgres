@@ -22,7 +22,7 @@ export default function Academics() {
       title: "Curriculum",
       icon: BookOpen,
       description: "Organize course curriculum and syllabus",
-      path: "/admin/academics/curriculum",
+      path: "/admin/popular-subjects",
     },
     {
       title: "Assignments",

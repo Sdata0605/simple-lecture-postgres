@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SUPABASE_DIRECT_URL } from "@/lib/supabaseUrl";
+import { DEFAULT_UPSTREAM, proxyUrl } from "@/lib/serverConfig";
 import { toast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,12 +69,11 @@ interface ImportantQuestion {
 }
 
 const API_STORAGE_KEY = "ai_teaching_api_base";
-const DEFAULT_API_BASE = "http://116.202.230.124:8000";
+const DEFAULT_API_BASE = DEFAULT_UPSTREAM;
 const PROXY_URL = `${SUPABASE_DIRECT_URL}/functions/v1/ai-teaching-proxy`;
 
 const proxyFetch = (apiBase: string, path: string, init?: RequestInit) => {
-  const base = apiBase.replace(/\/+$/, "");
-  const url = `${PROXY_URL}?path=${encodeURIComponent(path)}&base=${encodeURIComponent(base)}`;
+  const url = proxyUrl(PROXY_URL, path, apiBase);
   return fetch(url, init);
 };
 

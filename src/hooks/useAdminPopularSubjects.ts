@@ -115,10 +115,13 @@ export const useCreateSubject = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      // Invalidate all subject-related queries
-      queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-base"] });
+    onSuccess: async () => {
+      // Await the refetch so the list is fresh when the form navigates back to it.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-base"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-paginated"] }),
+      ]);
       toast({
         title: "Success",
         description: "Subject created successfully",
@@ -150,11 +153,14 @@ export const useUpdateSubject = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
-      // Invalidate all subject-related queries
-      queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-base"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-subject", data.id] });
+    onSuccess: async (data) => {
+      // Await the refetch so the list is fresh when the form navigates back to it.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-base"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-paginated"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-subject", data.id] }),
+      ]);
       toast({
         title: "Success",
         description: "Subject updated successfully",
@@ -187,6 +193,7 @@ export const useDeleteSubject = () => {
       // Invalidate all subject-related queries
       queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects"] });
       queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-base"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-paginated"] });
       queryClient.invalidateQueries({ queryKey: ["admin-popular-subjects-paginated"] });
       toast({
         title: "Success",

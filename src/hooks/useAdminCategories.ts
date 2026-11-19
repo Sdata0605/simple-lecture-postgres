@@ -230,8 +230,12 @@ export const useUpdateCategory = () => {
 
       return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+    onSuccess: async (_data, variables) => {
+      // Await the refetch so the page shows fresh data when it navigates back to the list.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["admin-categories"] }),
+        queryClient.invalidateQueries({ queryKey: ["admin-category", variables.id] }),
+      ]);
       toast({
         title: "Success",
         description: "Category updated successfully",

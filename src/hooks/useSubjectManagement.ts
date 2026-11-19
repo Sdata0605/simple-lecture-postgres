@@ -209,6 +209,7 @@ export const useCreateChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subject_id] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Chapter created successfully" });
     },
     onError: (error: Error) => {
@@ -243,6 +244,7 @@ export const useUpdateChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subject_id] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Chapter updated successfully" });
     },
     onError: (error: Error) => {
@@ -266,6 +268,7 @@ export const useDeleteChapter = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", data.subjectId] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Chapter deleted successfully" });
     },
     onError: (error: Error) => {
@@ -338,6 +341,7 @@ export const useCreateTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapter_id] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic created successfully" });
     },
     onError: (error: Error) => {
@@ -372,6 +376,7 @@ export const useUpdateTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapter_id] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic updated successfully" });
     },
     onError: (error: Error) => {
@@ -395,6 +400,7 @@ export const useDeleteTopic = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapterId] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic deleted successfully" });
     },
     onError: (error: Error) => {
@@ -432,6 +438,7 @@ export const useUpdateTopicContent = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics", data.chapter_id] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic content updated successfully" });
     },
     onError: (error: Error) => {
@@ -463,6 +470,7 @@ export const useUpdateChapterOrder = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters"] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Chapter order updated" });
     },
     onError: (error: Error) => {
@@ -493,6 +501,7 @@ export const useUpdateTopicOrder = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subject-topics"] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Topic order updated" });
     },
     onError: (error: Error) => {
@@ -523,6 +532,7 @@ export const useUpdateSubtopicOrder = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["subtopics"] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       toast({ title: "Success", description: "Subtopic order updated" });
     },
     onError: (error: Error) => {
@@ -700,8 +710,11 @@ export const useBulkImportChapters = () => {
     },
     onSuccess: (results, variables) => {
       queryClient.invalidateQueries({ queryKey: ["subject-chapters", variables.subjectId] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       queryClient.invalidateQueries({ queryKey: ["subject-topics"] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       queryClient.invalidateQueries({ queryKey: ["subtopics"] });
+      queryClient.invalidateQueries({ queryKey: ["subject-chapters-with-topics"] });
       
       const parts: string[] = [];
       

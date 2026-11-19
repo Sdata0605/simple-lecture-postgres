@@ -18,9 +18,8 @@ interface UploadResult {
   storageFile?: any;
 }
 
-// TEMP: B2 account suspended — route uploads to Supabase Storage instead.
-// Flip back to false once B2 is restored.
-const USE_SUPABASE_STORAGE_FOR_DOCS = true;
+// B2 is restored. Set to true only to route document uploads to Supabase Storage instead of B2.
+const USE_SUPABASE_STORAGE_FOR_DOCS = false;
 const SUPABASE_DOCS_BUCKET = 'uploaded-question-documents';
 
 export function useB2Upload() {

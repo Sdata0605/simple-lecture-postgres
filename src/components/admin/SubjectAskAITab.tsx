@@ -35,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { SUPABASE_DIRECT_URL } from "@/lib/supabaseUrl";
+import { DEFAULT_UPSTREAM, proxyUrl } from "@/lib/serverConfig";
 import { AskAIJobsDashboard } from "./AskAIJobsDashboard";
 
 interface Props {
@@ -44,14 +45,14 @@ interface Props {
 }
 
 const LS_KEY = "ai_teaching_api_base";
-const DEFAULT_BASE = "http://116.202.230.124:8000";
+const DEFAULT_BASE = DEFAULT_UPSTREAM;
 const PROXY_URL = `${SUPABASE_DIRECT_URL}/functions/v1/ai-teaching-proxy`;
 const POLL_MS = 3000;
 
 // Wraps any upstream call through the edge-function proxy so the browser
 // (HTTPS) can reach the plain-HTTP AI Teaching API without mixed-content errors.
 const proxyFetch = (apiBase: string, path: string, init?: RequestInit) => {
-  const url = `${PROXY_URL}?path=${encodeURIComponent(path)}&base=${encodeURIComponent(apiBase.replace(/\/+$/, ""))}`;
+  const url = proxyUrl(PROXY_URL, path, apiBase);
   return fetch(url, init);
 };
 
@@ -150,11 +151,11 @@ export function SubjectAskAITab({ subjectId, subjectName, subjectSlug }: Props) 
   const [apiBase, setApiBase] = useState<string>(() => {
     if (typeof window === "undefined") return DEFAULT_BASE;
     const stored = localStorage.getItem(LS_KEY);
-    // Migrate stale values: old GPU IP and localhost — proxy can't reach them.
+    // Migrate stale values: a saved raw server IP or localhost. The backend's default upstream is used instead.
     if (
       !stored ||
       /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(stored) ||
-      /69\.197\.145\.4/.test(stored)
+      /^https?:\/\/\d{1,3}(\.\d{1,3}){3}/.test(stored)
     ) {
       try { localStorage.setItem(LS_KEY, DEFAULT_BASE); } catch { /* ignore */ }
       return DEFAULT_BASE;
@@ -759,7 +760,7 @@ export function SubjectAskAITab({ subjectId, subjectName, subjectSlug }: Props) 
           <Input
             value={apiBase}
             onChange={(e) => setApiBase(e.target.value)}
-            placeholder="http://116.202.230.124:8000"
+            placeholder="Default server (leave empty)"
           />
           <p className="text-xs text-muted-foreground">
             Saved locally. POSTs to <code>{apiBase.replace(/\/+$/, "")}/questions/import</code>;
